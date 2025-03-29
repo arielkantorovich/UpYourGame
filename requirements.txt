@@ -1,0 +1,5 @@
+numpy==1.21.5
+tensorrt==10.0.1
+tensorrt-dispatch==10.0.1
+tensorrt-lean==10.0.1
+matplotlib==3.9.2
