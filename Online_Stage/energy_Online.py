@@ -5,7 +5,7 @@ import torch.nn.init as init
 import torch.nn.functional as F
 import os
 import torch
-
+import argparse
 
 class Energy_naive(nn.Module):
     def __init__(self, input_size, output_size):
@@ -206,10 +206,10 @@ class Nash_Filter_NN(Nash_Filter):
 
 def main_loop_Nash_Filter(const_V, N, T, gamma_n_k, gamma_n, save_grad_debug, learning_rate,
               Xn_k, A_k, B_k,
-              reward_list, grad_list, is_global=False):
+              reward_list, grad_list, is_global=False, model_path="Energy_NetPath(N=5).pth", hyper_param_path=""):
     nash_filter = Nash_Filter_NN(L, N, K, A_k[:, 0, :], B_k[:, 0, :], const_V)
-    nash_filter.Load_NN_Model("Energy_NetPath(N=5).pth", input_size=23, output_size=2)
-    x_train = nash_filter.Exploration_process(5, pathN="N=5_energey_game")
+    nash_filter.Load_NN_Model(model_path, input_size=23, output_size=2)
+    x_train = nash_filter.Exploration_process(5, pathN=hyper_param_path)
     Ak_est, Bk_est = nash_filter.Estimate_ak_bk(x_train)
     print(f"MSE: Ak_error = {np.sum((Ak_est - A_k) ** 2) / (L * N * K)}    Bk_error = {np.sum((Bk_est - B_k) ** 2) / (L * N * K)}")
     # Game loop
@@ -341,90 +341,134 @@ def main_loop(const_V, N, T, gamma_n_k, gamma_n, save_grad_debug, learning_rate,
 
 
 
+def Parse_args():
+    """
+    Parse command line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Build Data set for Energy Game.')
+    parser.add_argument('--model_path', type=str, required=True, help='Path to the NN model *.pth torch weights')
+    parser.add_argument('--hyper_path', type=str, required=True, help='Path to the hyperparameter std and mean')
+    parser.add_argument('--outputDir', type=str, default="output", help='output directory path')
+    parser.add_argument('--N', type=int, default=5, help='batch size')
+    parser.add_argument('--L', type=int, default=100, help='Number of games')
+    parser.add_argument('--K', type=int, default=24, help='Sts the Intersection Over Union threshold')
+    parser.add_argument('--dist', type=int, default=0, help='Sample distribution 0-uniform, 1 - exponential')
+    parser.add_argument('--isValid', type=int, default=1, help='data for validation - 1 or training - 0')
+    parser.add_argument('--T_exp', type=int, default=5, help='T_exploration, exploration process time take from -T to T so in general is twice size')
+    parser.add_argument('--T_loss', type=int, default=200, help='T_loss, path loss samples time')
+    return parser.parse_args()
+
+if __name__ == '__main__':
+    # Initialize constant parameters
+    args = Parse_args()
+    const_V = 25
+    L = args.L
+    K = args.K
+    N = args.N
+    T = 300
+
+    # Game Parameters
+    gamma_n_k = 7.35
+    gamma_n = 15.55
+    alpha = 1.5
+    beta = 0.97
+    dist = args.dist
+    model_path = args.model_path
+
+    if dist == 0:
+        # Uniform Distribution
+        dist = "uniform"
+
+        # Sample ak and bk
+        A_k = alpha * np.random.uniform(low=0.1, high=1.8, size=(L, K))
+        B_k = beta * np.random.uniform(low=0.0, high=5.0, size=(L, K))
+
+        # Duplicate ak and bk that will be same for each player
+        A_k = np.repeat(A_k[:, np.newaxis, :], N, axis=1)
+        B_k = np.repeat(B_k[:, np.newaxis, :], N, axis=1)
+
+    elif dist == 1:
+        # Exponential Distribution
+        dist = "exponential"
+        mean_target_a = (0.1 + 1.8) / 2  # ≈ 0.95
+        lambda_a = 1.0 / mean_target_a
+        mean_target_b = 2.5  # Roughly mid of [0, 5]
+        lambda_b = 1.0 / mean_target_b
+
+        A_k_raw = np.random.exponential(scale=1.0 / lambda_a, size=(L, K))
+        A_k_clipped = np.clip(A_k_raw, 0.1, 1.8)
+        A_k = alpha * A_k_clipped
+
+        B_k_raw = np.random.exponential(scale=1.0 / lambda_b, size=(L, K))
+        B_k_clipped = np.clip(B_k_raw, 0.0, 5.0)
+        B_k = beta * B_k_clipped
+        # Duplicate ak and bk that will be same for each player
+        A_k = np.repeat(A_k[:, np.newaxis, :], N, axis=1)
+        B_k = np.repeat(B_k[:, np.newaxis, :], N, axis=1)
+
+
+    # learning_rate = 0.005 * np.reciprocal(np.power(range(1, T + 1), 0.6))
+    learning_rate = 0.0005 * np.ones((T,))
+    Xn_k = np.random.uniform(low=0.0, high=1.0, size=(L, N, K))
+
+    # define X nash and x global
+    X_NE = Xn_k.copy()
+    X_global = Xn_k.copy()
+    X_ml = Xn_k.copy()
+
+
+    # Save results
+    save_grad_debug = False
+    reward_list_NE = np.zeros((T, N))
+    grad_list_NE = np.zeros((T, N))
+    reward_list_global = np.zeros((T, N))
+    grad_list_global = np.zeros((T, N))
+    reward_list_ml = np.zeros((T, N))
+    grad_list_ml = np.zeros((T, N))
+
+    # Read to main loop
+    X_ml, reward_list_ml = main_loop_Nash_Filter(const_V, N, T, gamma_n_k, gamma_n, save_grad_debug, learning_rate,
+                          X_ml, A_k, B_k,
+                          reward_list_global, grad_list_global, is_global=False,
+                                                 model_path=model_path, hyper_param_path=args.hyper_path)
 
 
 
-# Initialize constant parameters
-const_V = 25
-L = 100
-K = 24
-N = 5
-T = 300
 
 
-# Game Parameters
-gamma_n_k = 7.35
-gamma_n = 15.55
-# learning_rate = 0.005 * np.reciprocal(np.power(range(1, T + 1), 0.6))
-learning_rate = 0.0005 * np.ones((T, ))
-alpha = 1.5
-beta = 0.97
-Xn_k = np.random.uniform(low=0.0, high=1.0, size=(L, N, K))
-A_k = alpha * np.random.uniform(low=0.1, high=1.8, size=(L, K))
-B_k = beta * np.random.uniform(low=0.0, high=5.0, size=(L, K))
-
-# Duplicate ak and bk that will be same for each player
-A_k = np.repeat(A_k[:, np.newaxis, :], N, axis=1)
-B_k = np.repeat(B_k[:, np.newaxis, :], N, axis=1)
+    X_NE, reward_list_NE, grad_list_NE, std_ne = main_loop(const_V, N, T, gamma_n_k,
+                                                   gamma_n, save_grad_debug, learning_rate,
+                                                   X_NE, A_k, B_k,
+                                                   reward_list_NE, grad_list_NE, is_global=False,
+                                                   ML_grad=False)
 
 
-# define X nash and x global
-X_NE = Xn_k.copy()
-X_global = Xn_k.copy()
-X_ml = Xn_k.copy()
+    X_global, reward_list_global, grad_list_global, _ = main_loop(const_V, N, T, gamma_n_k,
+                                                               gamma_n, save_grad_debug, learning_rate,
+                                                               X_global, A_k, B_k,
+                                                               reward_list_global, grad_list_global, is_global=True,
+                                                             ML_grad=False)
 
 
-# Save results
-save_grad_debug = False
-reward_list_NE = np.zeros((T, N))
-grad_list_NE = np.zeros((T, N))
-reward_list_global = np.zeros((T, N))
-grad_list_global = np.zeros((T, N))
-reward_list_ml = np.zeros((T, N))
-grad_list_ml = np.zeros((T, N))
+    # Plot Section
+    t = np.arange(T)
 
-# Read to main loop
-X_ml, reward_list_ml = main_loop_Nash_Filter(const_V, N, T, gamma_n_k, gamma_n, save_grad_debug, learning_rate,
-                      X_ml, A_k, B_k,
-                      reward_list_global, grad_list_global, is_global=False)
+    total_NE_reward = np.sum(reward_list_NE, axis=1)
+    total_NE_std = np.mean(std_ne, axis=1)
 
+    total_global_reward = np.sum(reward_list_global, axis=1)
 
+    total_ml_reward = np.sum(reward_list_ml, axis=1)
 
+    plt.figure(1)
+    plt.title(f'N={N}')
+    plt.plot(t, total_NE_reward, color='b', label="$Nash$"), plt.xlabel("# Iteration"), plt.legend()
+    # plt.fill_between(t, total_NE_reward - total_NE_std, total_NE_reward + total_NE_std, color='b', alpha=0.2)
 
+    plt.plot(t, total_ml_reward, color='lightcoral', linestyle='-', label="$Ours$"), plt.xlabel("# Iteration"), plt.legend()
+    plt.plot(t, total_global_reward, '--k', label="$Global$"), plt.xlabel("# Iteration"), plt.legend()
+    plt.ylim(np.max(total_NE_reward)-200, np.max(total_global_reward)+100)
 
-X_NE, reward_list_NE, grad_list_NE, std_ne = main_loop(const_V, N, T, gamma_n_k,
-                                               gamma_n, save_grad_debug, learning_rate,
-                                               X_NE, A_k, B_k,
-                                               reward_list_NE, grad_list_NE, is_global=False,
-                                               ML_grad=False)
+    plt.show()
 
-
-X_global, reward_list_global, grad_list_global, _ = main_loop(const_V, N, T, gamma_n_k,
-                                                           gamma_n, save_grad_debug, learning_rate,
-                                                           X_global, A_k, B_k,
-                                                           reward_list_global, grad_list_global, is_global=True,
-                                                         ML_grad=False)
-
-
-# Plot Section
-t = np.arange(T)
-
-total_NE_reward = np.sum(reward_list_NE, axis=1)
-total_NE_std = np.mean(std_ne, axis=1)
-
-total_global_reward = np.sum(reward_list_global, axis=1)
-
-total_ml_reward = np.sum(reward_list_ml, axis=1)
-
-plt.figure(1)
-plt.title(f'N={N}')
-plt.plot(t, total_NE_reward, color='b', label="$Nash$"), plt.xlabel("# Iteration"), plt.legend()
-plt.fill_between(t, total_NE_reward - total_NE_std, total_NE_reward + total_NE_std, color='b', alpha=0.2)
-
-plt.plot(t, total_ml_reward, '-y', label="$Ours$"), plt.xlabel("# Iteration"), plt.legend()
-plt.plot(t, total_global_reward, '--k', label="$Global$"), plt.xlabel("# Iteration"), plt.legend()
-plt.ylim(np.max(total_NE_reward)-200, np.max(total_global_reward)+100)
-
-plt.show()
-
-print("Finsh ..... ")
+    print("Finsh ..... ")

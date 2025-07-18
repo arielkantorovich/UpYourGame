@@ -1,5 +1,5 @@
 # Up Your Game: Training Games with Efficient Nash Equilibrium with Deep Learning
-A code implementation of Up Your Game: Training Games with Efficient Nash Equilibrium with Deep Learning paper that accepted to the 64th IEEE Conference on Decision and Control, 2025.
+A code implementation of Up Your Game: Training Games with Efficient Nash Equilibrium with Deep Learning. The paper accepted to the 64th IEEE Conference on Decision and Control, 2025.
 
 **Wireless Network results:**
 ![Wireless_results](Figures/Stacked_Wireless_Graphs.png)
