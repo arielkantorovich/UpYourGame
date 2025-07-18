@@ -1,14 +1,35 @@
 import numpy as np
+import argparse
+import os
 
+def Parse_args():
+    """
+    Parse command line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Build Data set for Energy Game.')
+    parser.add_argument('--outputDir', type=str, default="output", help='output directory path')
+    parser.add_argument('--N', type=int, default=5, help='batch size')
+    parser.add_argument('--K', type=int, default=24, help='Sts the Intersection Over Union threshold')
+    parser.add_argument('--dist', type=int, default=0, help='Sample distribution 0-uniform, 1 - exponential')
+    parser.add_argument('--isValid', type=int, default=1, help='data for validation - 1 or training - 0')
+    parser.add_argument('--T_exp', type=int, default=5, help='T_exploration, exploration process time take from -T to T so in general is twice size')
+    parser.add_argument('--T_loss', type=int, default=200, help='T_loss, path loss samples time')
+    return parser.parse_args()
 
-def BuildData_for_kalman(x_init, T_exploration, N=5, file_x="N=5_energey_game", file_y_sanity="N=5_energey_game"):
+def BuildData_for_kalman(x_init, T_exploration, N=5, A_k=0, B_k=0,
+                         file_x="N=5_energey_game", file_y_sanity="N=5_energey_game"):
+    """
+    Build data set for Energy Game the exploration recording process.
+    :param x_init: (L, N, K) np.array
+    :param T_exploration:  (int) from -T to T so in general is twice size
+    :param N: (int) number of player
+    :param A_k: (L, N, K) np.array
+    :param B_k: (L, N, K) np.array
+    :param file_x: (str) file name
+    :param file_y_sanity: (str) label file name
+    :return:
+    """
     Xn_k = x_init.copy()
-    A_k = alpha * np.random.uniform(low=0.1, high=1.8, size=(L, K))
-    B_k = beta * np.random.uniform(low=0.0, high=5.0, size=(L, K))
-
-    # Duplicate ak and bk that will be same for each player
-    A_k = np.repeat(A_k[:, np.newaxis, :], N, axis=1)
-    B_k = np.repeat(B_k[:, np.newaxis, :], N, axis=1)
     X_train = []
     Y_train = [A_k[:, 0, 0].reshape(L, 1), B_k[:, 0, 0].reshape(L, 1)]
     x_debug = []
@@ -28,7 +49,6 @@ def BuildData_for_kalman(x_init, T_exploration, N=5, file_x="N=5_energey_game", 
     np.save(file_x, X_train)
     np.save(file_y_sanity, Y_train)
     print("Succeed save first data to training.")
-    return A_k, B_k
 
 def calculate_residual_gradient(Xn_k, A_k, B_k, Sk, N=5):
     """
@@ -88,19 +108,19 @@ def project_onto_simplex(V, z=1):
     result = np.where(mask, projection, V)
     return result
 
+
 if __name__ == "__main__":
-    # Initialize constant parameters
+    # Initialize parameters
+    args = Parse_args()
     const_V = 25
-    K = 24
-    N = 5
-    T = 200
-    alpha = 1.5
-    beta = 0.97
-    gamma_n_k = 7.35
-    gamma_n = 15.55
-    learning_rate = 0.0005 * np.ones((T,))
-    isValid = True
-    # Define Paths to save arrays
+    K = args.K
+    N = args.N
+    T_loss = args.T_loss
+    T_exploration = args.T_exp
+    isValid = args.isValid
+    dist = args.dist
+
+    # Define Number of samples game.
     if isValid:
         L = 3000
         state = "valid"
@@ -108,19 +128,64 @@ if __name__ == "__main__":
         L = 30000
         state = "train"
 
-    pathN = "N=5_energey_game_check"
-    file_x = f"Numpy_array_save/{pathN}/X_{state}.npy"
-    file_y_sanity = f"Numpy_array_save/{pathN}/Y_{state}_sanity.npy"
-    file_z = f"Numpy_array_save/{pathN}/Z_{state}.npy"
-    file_y = f"Numpy_array_save/{pathN}/Y_{state}.npy"
+    # Define samples ak and bk from distribution
+    alpha = 1.5
+    beta = 0.97
+    gamma_n_k = 7.35
+    gamma_n = 15.55
+    if dist == 0:
+        # Uniform Distribution
+        dist = "uniform"
+
+        # Sample ak and bk
+        A_k = alpha * np.random.uniform(low=0.1, high=1.8, size=(L, K))
+        B_k = beta * np.random.uniform(low=0.0, high=5.0, size=(L, K))
+
+        # Duplicate ak and bk that will be same for each player
+        A_k = np.repeat(A_k[:, np.newaxis, :], N, axis=1)
+        B_k = np.repeat(B_k[:, np.newaxis, :], N, axis=1)
+
+    elif dist == 1:
+        # Exponential Distribution
+        dist = "exponential"
+        mean_target_a = (0.1 + 1.8) / 2  # ≈ 0.95
+        lambda_a = 1.0 / mean_target_a
+        mean_target_b = 2.5  # Roughly mid of [0, 5]
+        lambda_b = 1.0 / mean_target_b
+
+        A_k_raw = np.random.exponential(scale=1.0 / lambda_a, size=(L, K))
+        A_k_clipped = np.clip(A_k_raw, 0.1, 1.8)
+        A_k = alpha * A_k_clipped
+
+        B_k_raw = np.random.exponential(scale=1.0 / lambda_b, size=(L, K))
+        B_k_clipped = np.clip(B_k_raw, 0.0, 5.0)
+        B_k = beta * B_k_clipped
+        # Duplicate ak and bk that will be same for each player
+        A_k = np.repeat(A_k[:, np.newaxis, :], N, axis=1)
+        B_k = np.repeat(B_k[:, np.newaxis, :], N, axis=1)
+
+    # Build path to save results
+    pathN = f"N={N}_energey_game_{dist}"
+    folder_path = f"../Numpy_array_save/{pathN}"
+    os.makedirs(folder_path, exist_ok=True) # Ensure the folder exists
+    # Define file paths
+    file_x = f"{folder_path}/X_{state}.npy"
+    file_y_sanity = f"{folder_path}/Y_{state}_sanity.npy"
+    file_z = f"{folder_path}/Z_{state}.npy"
+    file_y = f"{folder_path}/Y_{state}.npy"
 
     x = np.random.uniform(low=3.1, high=7.0, size=(L, N, K))
-    A_k, B_k = BuildData_for_kalman(x_init=x, T_exploration=5, N=N, file_x=file_x, file_y_sanity=file_y_sanity)
-    # Now collect for T data gradient points
-    Z_train = np.zeros((L, 2*T))
-    Y_train = np.zeros((L, T))
+    learning_rate = 0.0005 * np.ones((T_loss,))
+
+    BuildData_for_kalman(x_init=x, T_exploration=T_exploration, N=N,
+                         A_k=A_k, B_k=B_k,
+                         file_x=file_x, file_y_sanity=file_y_sanity)
+
+    # Now collect for path loss data gradient points
+    Z_train = np.zeros((L, 2*T_loss))
+    Y_train = np.zeros((L, T_loss))
     Xn_k = x.copy()
-    for t in range(T):
+    for t in range(T_loss):
         # Calculate sum of action and duplicate for vectorization operation
         Sk = np.sum(Xn_k, axis=1)
         Sk = np.repeat(Sk[:, np.newaxis, :], N, axis=1)
