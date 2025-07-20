@@ -8,6 +8,7 @@ A code implementation of Up Your Game: Training Games with Efficient Nash Equili
 ![Energy_results](Figures/Stacked_Energy_Graphs.png)
 
 **Training offline Stage Example:**
+![Training description digram:](Figures/systemDesc.png)
 ![offline_results](Figures/stacked_train_offline.jpg)
 
 ## Installation
@@ -24,7 +25,7 @@ pip install -r requirements.txt
 **Tested environments:** WSL2 with Ubuntu 22.04, Python 3.8, CUDA 11.8, NVIDIA RTX 4090.
 
 ## Usage
-Please download pre-trained NN weights files from the following [*Google Drive*](https://drive.google.com/drive/u/0/folders/1tVb5trH-syv6M6KI__ftLymA0r5ICCqu).
+Please download pre-trained NN weights files from the following [*Google Drive*](https://drive.google.com/drive/folders/1XrniNQHrXPZXyKWb8XiKFAH_CBNt9Lzd?usp=sharing).
 ```python
 # Example of running online stage application
 python3 Online_Stage/energy_Online.py

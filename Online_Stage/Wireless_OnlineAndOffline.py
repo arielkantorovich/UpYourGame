@@ -11,6 +11,8 @@ import torch.nn.init as init
 import torch.nn as nn
 import os
 import torch
+import argparse
+from scipy.stats import truncnorm
 
 class Wireless_naive(nn.Module):
     def __init__(self, input_size, output_size):
@@ -101,7 +103,7 @@ class WirelessKalman:
         return predicted_values.reshape(self.L, self.N, output_size)
 
 
-def generate_symmetric_gain(N, L, alpha=1, R_link=0.1):
+def generate_symmetric_gain(N, L, alpha=1, R_link=0.1, distrbution="uniform"):
     """
     :param N: Number of players
     :param L: Trials to experiment
@@ -110,13 +112,21 @@ def generate_symmetric_gain(N, L, alpha=1, R_link=0.1):
     :return: Q, B
     """
     # Generate random transceiver locations in a radius of 1
-    Transreceivers = np.random.rand(L, N, 2) * 2 - 1  # Scale to (-1, 1) and then to (-1, 1) radius 1
+    if distrbution == "uniform":
+        Transceivers = np.random.rand(L, N, 2) * 2 - 1  # Scale to (-1, 1) and then to (-1, 1) radius 1
+        pass
+    elif distrbution == "normal":
+        lower, upper = -1, 1
+        mu, sigma = 0, 0.5
+        Transceivers = truncnorm(
+            (lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma
+        ).rvs((L, N, 2))
     # Generate random receiver locations in a radius of 0.1 around each transceiver
     Rlink = R_link #0.1/ 0.3
     ReceiverOffsets = Rlink * (np.random.rand(L, N, 2) * 2 - 1)  # Scale to (-1, 1) and then to (-0.1, 0.1)
-    Receivers = Transreceivers + ReceiverOffsets
+    Receivers = Transceivers + ReceiverOffsets
     # Calculate distances between transceivers and receivers
-    distances = np.linalg.norm(Transreceivers[:, :, np.newaxis, :] - Receivers[:, np.newaxis, :, :], axis=3)
+    distances = np.linalg.norm(Transceivers[:, :, np.newaxis, :] - Receivers[:, np.newaxis, :, :], axis=3)
     g = alpha / (distances ** 2)
     return g
 
@@ -305,62 +315,92 @@ def build_DataToTrain(P, N, L, T_exploration, g, lr, isGlobal=False):
     Y_train = Y_train.reshape(L * N, T_exploration)
     return X_train, Y_train
 
-
+def Parse_args():
+    """
+    Parse command line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Build Data set for Energy Game.')
+    parser.add_argument('--outputDir', type=str, default="output", help='output directory path')
+    parser.add_argument('--N', type=int, default=5, help='batch size')
+    parser.add_argument('--Rlink', type=float, default=0.1, help='Sts the Intersection Over Union threshold')
+    parser.add_argument('--dist', type=int, default=0, help='Sample distribution 0-uniform, 1 - exponential')
+    parser.add_argument('--isValid', type=int, default=1, help='data for validation - 1 or training - 0')
+    parser.add_argument('--isTest', type=int, default=1, help='testing - 1 (inference time) or build data for training - 0')
+    parser.add_argument('--T_exp', type=int, default=100, help='T_exploration, exploration process time take from -T to T so in general is twice size')
+    parser.add_argument('--T_loss', type=int, default=250, help='T_loss, path loss samples time')
+    return parser.parse_args()
 
 if __name__ == '__main__':
+    args = Parse_args()
     # Define Scalar Parameters
-    N = 80
+    N = args.N
     alpha = 10e-3 # 10e-3 for N=5.
     T = 2000
-    T_exp = 100 #50 / 100
-    R_link = 0.1
-    isValid = False
-    isTest = True
+    T_loss = args.T_loss
+    T_exp = args.T_exp #50 / 100
+    R_link = args.Rlink
+    dist = args.dist
+    isValid = args.isValid
+    isTest = args.isTest
 
     # learning_rate = 0.06 * np.reciprocal(np.power(range(1, T + 1), 0.9))
     learning_rate = 0.0098/4 * np.ones((T, ))
     # learning_rate[int(T/2):] = 0.0098/4
     learning_rate_2 = 0.009 * np.ones((T,))
 
+    if dist == 0:
+        dist = "uniform"
+    elif dist == 1:
+        dist = "normal"
+
+    # Prepare folder file save.
+    pathN = f"N={N}_wireless_poly(Rlink={R_link})_{dist}"
+    folder_path = f"../Numpy_array_save/{pathN}"
+    os.makedirs(folder_path, exist_ok=True)  # Ensure the folder exists
+
     if isValid:
         L = 2000
-        file_x_pre = 'Numpy_array_save/N=5_wireless_poly(Rlink=0.3)/x_valid_pre.npy'
-        file_x = 'Numpy_array_save/N=5_wireless_poly(Rlink=0.3)/x_valid.npy'
-        file_y = 'Numpy_array_save/N=5_wireless_poly(Rlink=0.3)/y_valid.npy'
+        file_x_pre = f'{folder_path}/x_valid_pre.npy'
+        file_x = f'{folder_path}/x_valid.npy'
+        file_y = f'{folder_path}/y_valid.npy'
 
     else:
         L = 15000
-        file_x_pre = 'Numpy_array_save/N=5_wireless_poly(Rlink=0.3)/x_train_pre.npy'
-        file_x = 'Numpy_array_save/N=5_wireless_poly(Rlink=0.3)/x_train.npy'
-        file_y = 'Numpy_array_save/N=5_wireless_poly(Rlink=0.3)/y_train.npy'
+        file_x_pre = f'{folder_path}/x_train_pre.npy'
+        file_x = f'{folder_path}/x_train.npy'
+        file_y = f'{folder_path}/y_train.npy'
 
     if isTest:
         L = 200
 
     # Define gain matrices
-    gain = generate_symmetric_gain(N, L, alpha, R_link)
+    gain = generate_symmetric_gain(N, L, alpha, R_link, dist)
 
     P_init = np.random.rand(L, N, 1)
     # Build Data for training alpha and beta
     X_data_pre, _ = build_DataToTrain(P_init, N, L, T_exp, gain, learning_rate_2)
 
     if not isTest:
-        X_data, Y_data = build_DataToTrain(P_init, N, L, T_exp, gain, learning_rate_2, True)
+        X_data, Y_data = build_DataToTrain(P_init, N, L, T_loss, gain, learning_rate_2, True)
         np.save(file_x_pre, X_data_pre)
         np.save(file_x, X_data)
         np.save(file_y, Y_data)
         print("Finsh Generate Wireless training Data, isValid = ", isValid)
         exit(-1)
 
+    else:
+        pathWeight_alph = f"Wireless_Net_poly(N={N}_{dist}_alpha).pth"
+        pathWeight_alphBeta = f"Wireless_Net_poly(N={N}_{dist}_alpha_beta).pth"
+
     # Use Training Network
     nash_filter = WirelessKalman(L, N, T_exp)
-    nash_filter.Load_NN_model("N=80(Rlink=0.1)", 'Wireless_Net_poly.pth', output_size=2)
+    nash_filter.Load_NN_model(pathN, pathWeight_alphBeta, output_size=2)
     output = nash_filter.forward_propg(X_data_pre, 2)
     alpha_ne, beta_ne = output[:, :, 0].reshape(L, N, 1), output[:, :, 1].reshape(L, N, 1)
 
     # Use Training Network(projection)
     nash_filter = WirelessKalman(L, N, T_exp)
-    nash_filter.Load_NN_model("N=80(Rlink=0.1)", 'Wireless_Net_poly(alpha).pth', output_size=1)
+    nash_filter.Load_NN_model(pathN, pathWeight_alph, output_size=1)
     output = nash_filter.forward_propg(X_data_pre, output_size=1)
     alpha_p = output[:, :, 0].reshape(L, N, 1)
 
