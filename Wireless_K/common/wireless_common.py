@@ -6,70 +6,7 @@ Created on : ------
 
 import numpy as np
 from scipy.stats import truncnorm
-from dataclasses import dataclass
-import argparse
 
-@dataclass(slots=True)
-class SimConfig:
-    """
-    Simulation Parameters
-    """
-    L: int = 200
-    N: int = 5
-    K: int = 14
-    Rlink: float = 0.1
-    T: int = 2000
-    dist: str = "uniform"
-    isPlot: bool = False
-    alpha: float = 10e-3
-    Border_floor: float = 0.0
-    Border_ceil: float = 1.0
-    N0: float = 0.001
-    seed: int | None = None
-
-
-@dataclass(slots=True)
-class SimRecord:
-    # arrays you want to log over time
-    P: np.ndarray            # (T, L, N, K) or (L, N, K) depending on what you store
-    obj: np.ndarray          # (T,) or (T,L) etc.
-    grad_norm: np.ndarray    # (T,) etc.
-
-    @classmethod
-    def create(cls, cfg: "SimConfig") -> "SimRecord":
-        """
-        Refers to the class itself, Used in class methods.
-        :param cfg:
-        :return:
-        """
-        # choose shapes that match what you want to record
-        P = np.zeros((cfg.T, cfg.L, cfg.N, cfg.K), dtype=np.float64)
-        obj = np.zeros((cfg.T,), dtype=np.float64)
-        grad_norm = np.zeros((cfg.T,), dtype=np.float64)
-        return cls(P=P, obj=obj, grad_norm=grad_norm)
-
-
-def parse_args() -> SimConfig:
-    p = argparse.ArgumentParser(description="Wireless naive K simulation")
-
-    p.add_argument("--L", type=int, default=200)
-    p.add_argument("--N", type=int, default=5)
-    p.add_argument("--K", type=int, default=14)
-    p.add_argument("--Rlink", type=float, default=0.1)
-    p.add_argument("--N0", type=float, default=0.001)
-    p.add_argument("--T", type=int, default=2000)
-    p.add_argument("--dist", type=str, default="uniform", choices=["uniform", "normal"])
-    p.add_argument("--plot", action="store_true", help="Enable plotting")
-    p.add_argument("--seed", type=int, default=None)
-
-    # optional extras
-    p.add_argument("--alpha", type=float, default=10e-3)
-
-    a = p.parse_args()
-    return SimConfig(
-        L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, T=a.T,
-        dist=a.dist, isPlot=a.plot, seed=a.seed, alpha=a.alpha
-    )
 
 def generate_gain_channel(
         N: int = 5,
@@ -169,27 +106,111 @@ def calc_local_gradient(
     return gradients_local
 
 
+def calc_residual_gradient(g_diag: np.ndarray,
+                           g_zero: np.ndarray,
+                           In: np.ndarray,
+                           N0: float | np.ndarray,
+                           P: np.ndarray,
+                           grad_local: np.ndarray,
+                           eps: float = 1e-12
+                           ) -> np.ndarray:
+    """
+    Calculate the residual gradient the original prior gradient
+         results[l, j, k] = - sum_i g0[l, i, j, k] * temp[l, i, k]
+    :param g_diag:  shape (L, N, K), Direct channel gains (diagonal terms) per trial/player/channel.
+    :param g_zero: shape (L, N, N, K) g where the diagonal is zero.
+    :param In: shape (L, N, K), Interference power per trial/player/channel (excluding desired signal).
+    :param N0: float, White gaussian Noise power
+    :param P: shape (L, N, K), Transmit powers per trial/player/channel.
+    :param grad_local: shape (L, N, K), Local gradient values per trial/player/channel.
+    :param eps: float, Small constant for numerical stability (avoid division by 0).
+    :return: prior gradient (residual gradient) (L, N, K) shape.
+    """
+    if g_diag.shape != In.shape or g_diag.shape != P.shape:
+        raise ValueError(f"Shape mismatch: g_diag{g_diag.shape}, In{In.shape}, P{P.shape}")
+    denom = In + N0
+    numerator = g_diag / (denom + eps)  # (L, N, K)
+    SNR = numerator * P  # (L, N, K)
+    temp = grad_local * SNR / (g_diag + eps)  # (L, N, K)
+    results = -np.einsum('lijk,lik->ljk', g_zero, temp)  # (L, N, K)
+    return results
+
+
+
 def extract_g_diag(g: np.ndarray) -> np.ndarray:
     """
     Extract diagonal gains g_{i,i,k} for each l,k.
     g: (L, N, N, K) -> (L, N, K)
     """
-    return np.diagonal(g, axis1=1, axis2=2)  # (L, N, K)
+    diag = np.diagonal(g, axis1=1, axis2=2)   # (L, K, N)
+    return np.moveaxis(diag, -1, 1)
 
 def compute_total_rx_power(g: np.ndarray, P: np.ndarray) -> np.ndarray:
     """
-    total[l, j, k] = sum_i g[l, i, j, k] * P[l, i, k]
-    g: (L,N,N,K), P: (L,N,K) -> total: (L,N,K)
+    Calculate  total[l, j, k] = sum_i g[l, i, j, k] * P[l, i, k]
+    :param g: (L,N,N,K) - channel gain {gmn}
+    :param P: (L,N,K) - transmission power
+    :return (L, N, K) - total power sum.
     """
     return np.einsum('lijk,lik->ljk', g, P)
 
 def compute_interference(g: np.ndarray, P: np.ndarray, g_diag: np.ndarray) -> np.ndarray:
     """
+    The following function calculate the interference of player n using vectorization
     In[l, j, k] = sum_{i != j} g[l, i, j, k] * P[l, i, k]
                = total - g_diag * P
+    :param g: (L,N,N,K) - channel gain {gmn}
+    :param P: (L,N,K) - transmission power
+    :param g_diag: (L,K, N) - channel gain between transmitter and is indeed receiver
+    :return In: (L, N, K)
     """
     total = compute_total_rx_power(g, P)     # (L, N, K)
     return total - g_diag * P                # (L, N, K)
+
+
+def project_box(
+    P: np.ndarray,
+    low: float | np.ndarray,
+    high: float | np.ndarray
+) -> None:
+    """
+    In-place Project P onto box constraints [low, high].
+
+    Parameters
+    ----------
+    P : ndarray
+        Input array.
+    low : float or ndarray
+        Lower bound (scalar or broadcastable).
+    high : float or ndarray
+        Upper bound (scalar or broadcastable).
+
+    Returns
+    -------
+    ndarray
+        Projected array (new array).
+    """
+    np.clip(P, low, high, out=P)
+
+def compute_objective(In: np.ndarray,
+                      g_diag: np.ndarray,
+                      P: np.ndarray,
+                      N0: float,
+                      eps: float = 1e-12) -> float:
+    """
+    Calculate objective.
+    :param obj: float is obj[t]
+    :return: float, put in the objective the relevant results
+    """
+    denom = In + N0
+    numerator = g_diag / (denom + eps)  # (L, N, K)
+    SNR = numerator * P  # (L, N, K)
+    temp = np.log(1 + SNR) # (L N K)
+    total = np.sum(temp, axis=2) # Sum on K
+    total = np.sum(total, axis=1) # Sum On N
+    obj = np.mean(total) # Calculate Average on L trilas
+    return obj
+
 
 
 
