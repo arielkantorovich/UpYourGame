@@ -18,6 +18,7 @@ class SimConfig:
     N: int = 5
     K: int = 14
     Rlink: float = 0.1
+    lr_c: float = 0.002
     T: int = 2000
     dist: str = "uniform"
     isPlot: bool = False
@@ -56,6 +57,11 @@ class GradMode(IntEnum):
     PRIOR_APPROXIMATION = 2
 
 
+@dataclass(frozen=True)
+class Sim_G:
+    g: np.ndarray
+    g_diag: np.ndarray
+    g_zero: np.ndarray
 
 def parse_args() -> SimConfig:
     p = argparse.ArgumentParser(description="Wireless naive K simulation")
@@ -65,6 +71,7 @@ def parse_args() -> SimConfig:
     p.add_argument("--K", type=int, default=14)
     p.add_argument("--Rlink", type=float, default=0.1)
     p.add_argument("--N0", type=float, default=0.001)
+    p.add_argument("--lr_c", type=float, default=0.002, help="Learning rate coefficient for the gradient update (default: 0.002)")
     p.add_argument("--T", type=int, default=2000)
     p.add_argument("--dist", type=str, default="uniform", choices=["uniform", "normal"])
     p.add_argument("--plot", action="store_true", help="Enable plotting")
@@ -75,6 +82,6 @@ def parse_args() -> SimConfig:
 
     a = p.parse_args()
     return SimConfig(
-        L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, T=a.T,
+        L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
         dist=a.dist, isPlot=a.plot, seed=a.seed, alpha=a.alpha
     )
