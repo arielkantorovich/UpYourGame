@@ -56,3 +56,12 @@ def plot_NE_opt_GAP(T: int, obj_NE: np.ndarray, obj_opt: np.ndarray) -> None:
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+
+def plot_GAP_N(N_list: list, diff_prec: np.ndarray) -> None:
+    plt.figure(figsize=(8, 5))
+    plt.plot(N_list, diff_prec, linestyle='--', marker='o')
+    plt.xlabel("# Number of agents")
+    plt.ylabel("# Gap (%)")
+    plt.title("Nash Gap vs Optimal")
+    plt.show()
