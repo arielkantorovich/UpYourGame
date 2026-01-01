@@ -7,7 +7,7 @@ import numpy as np
 
 from common.wireless_common import *
 from common.wireless_data_structure import *
-import matplotlib.pyplot as plt
+from common.wireless_plots import *
 
 
 def main(cfg: SimConfig, rec: SimRecord, G: Sim_G, P: np.ndarray, lr: np.ndarray, grad_mode: GradMode) -> None:
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     g_struct = Sim_G(g=g, g_diag=g_diag, g_zero=g_zero)
 
     # Define Initialize condition
-    P_init = np.random.rand(cfg.L, cfg.N, cfg.K)
+    P_init = cfg.Border_ceil * np.random.rand(cfg.L, cfg.N, cfg.K)
     P_init.setflags(write=False)
     P_NE = P_init.copy()
     P_opt = P_init.copy()
@@ -110,44 +110,4 @@ if __name__ == '__main__':
 
     if cfg.isPlot:
         print("============= Visualize Results ==================")
-        final_iter = cfg.T - 1
-        final_opt = rec_opt.obj[final_iter]
-        final_ne = rec_NE.obj[final_iter]
-
-        eps = 1e-12
-        diff_percentage = 100.0 * (final_opt - final_ne) / (final_opt + eps)
-
-        t = np.arange(cfg.T)
-
-        plt.figure(figsize=(8, 5))
-        plt.plot(t, rec_opt.obj, label="OPT")
-        plt.plot(t, rec_NE.obj, label="NE")
-
-        # Vertical line BETWEEN NE[T-1] and OPT[T-1]
-        plt.vlines(
-            x=final_iter,
-            ymin=min(final_opt, final_ne),
-            ymax=max(final_opt, final_ne),
-            colors="black",
-            linestyles="dashed",
-            linewidth=2
-        )
-
-        # Put text next to the vertical line
-        y_mid = 0.5 * (final_opt + final_ne)
-        x_offset = 100
-        plt.text(
-            final_iter-x_offset,
-            y_mid,
-            f"{diff_percentage:.2f}%",
-            ha="left",
-            va="center",
-            color="black"
-        )
-
-        plt.xlabel("# Iteration")
-        plt.ylabel("# Objective")
-        plt.title("Final Nash Gap vs Optimal")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+        plot_NE_opt_GAP(cfg.T, rec_NE.obj, rec_opt.obj)
