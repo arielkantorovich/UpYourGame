@@ -71,6 +71,7 @@ def parse_args() -> SimConfig:
     p.add_argument("--K", type=int, default=14)
     p.add_argument("--Rlink", type=float, default=0.1)
     p.add_argument("--N0", type=float, default=0.001)
+    p.add_argument("--p_max", type=float, default=1.0, help="border_ceill maximum power projection")
     p.add_argument("--lr_c", type=float, default=0.002, help="Learning rate coefficient for the gradient update (default: 0.002)")
     p.add_argument("--T", type=int, default=2000)
     p.add_argument("--dist", type=str, default="uniform", choices=["uniform", "normal"])
@@ -83,5 +84,5 @@ def parse_args() -> SimConfig:
     a = p.parse_args()
     return SimConfig(
         L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
-        dist=a.dist, isPlot=a.plot, seed=a.seed, alpha=a.alpha
+        dist=a.dist, isPlot=a.plot, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max
     )
