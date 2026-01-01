@@ -43,19 +43,16 @@ def generate_gain_channel(
 
     # For each k, make a different Rx position around each Tx:
     # ReceiverOffsets: (L, N, K, 2)
-    ReceiverOffsets = R_link * (np.random.rand(L, N, K, 2) * 2 - 1)
+    Offsets = 0.5 + 0.5 * np.random.rand(L, N, 2) # Offset between [0.5, 1)
+    ReceiverOffsets = R_link * Offsets
 
-    # Receivers: (L, N, K, 2)
-    Receivers = Transceivers[:, :, None, :] + ReceiverOffsets
+    Receivers = Transceivers + ReceiverOffsets
 
     # Pairwise distances from Tx_i to Rx_j(k):
-    # Transceivers: (L, N, 1, 1, 2)
-    # Receivers:     (L, 1, N, K, 2)
-    # diff -> (L, N, N, K, 2) -> norm -> (L, N, N, K)
-    diff = Transceivers[:, :, None, None, :] - Receivers[:, None, :, :, :]
-    distances = np.linalg.norm(diff, axis=-1)  # (L, N, N, K)
+    distances = np.linalg.norm(Transceivers[:, :, np.newaxis, :] - Receivers[:, np.newaxis, :, :], axis=3)
 
-    g = alpha / (distances**2 + eps)  # (L, N, N, K)
+    g = alpha / (distances**2 + eps)
+    g = np.repeat(g[..., None], K, axis=3)# (L, N, N, K)
 
     if output_layout.upper() == "LKN N".replace(" ", ""):  # "LKNN"
         return np.transpose(g, (0, 3, 1, 2))  # (L, K, N, N)
