@@ -22,6 +22,8 @@ class SimConfig:
     T: int = 2000
     dist: str = "uniform"
     isPlot: bool = False
+    SaveToTrain: bool = False
+    isValid: bool = False
     alpha: float = 10e-3
     Border_floor: float = 0.0
     Border_ceil: float = 1.0
@@ -31,10 +33,17 @@ class SimConfig:
 
 @dataclass(slots=True)
 class SimRecord:
-    # arrays you want to log over time
-    P: np.ndarray            # (T, L, N, K) or (L, N, K) depending on what you store
-    obj: np.ndarray          # (T,) or (T,L) etc.
-    grad_norm: np.ndarray    # (T,) etc.
+    """
+    Simulation Record
+    P size (T, L, N, K)
+    obj size (T,)
+    grad_norm_prior size (T, L, N, K)
+    In size (T, L, N, K)
+    """
+    P: np.ndarray
+    obj: np.ndarray
+    grad_norm_prior: np.ndarray
+    In: np.ndarray
 
     @classmethod
     def create(cls, cfg: "SimConfig") -> "SimRecord":
@@ -45,10 +54,11 @@ class SimRecord:
         :return:
         """
         # choose shapes that match what you want to record
-        P = np.zeros((cfg.T, cfg.L, cfg.N, cfg.K), dtype=np.float64)
-        obj = np.zeros((cfg.T,), dtype=np.float64)
-        grad_norm = np.zeros((cfg.T,), dtype=np.float64)
-        return cls(P=P, obj=obj, grad_norm=grad_norm)
+        P = np.zeros((cfg.T, cfg.L, cfg.N, cfg.K), dtype=np.float32)
+        obj = np.zeros((cfg.T,), dtype=np.float32)
+        grad_norm = np.zeros((cfg.T, cfg.L, cfg.N, cfg.K), dtype=np.float32)
+        In = np.zeros((cfg.T, cfg.L, cfg.N, cfg.K), dtype=np.float32)
+        return cls(P=P, obj=obj, grad_norm_prior=grad_norm, In=In)
 
 
 class GradMode(IntEnum):
@@ -76,6 +86,8 @@ def parse_args() -> SimConfig:
     p.add_argument("--T", type=int, default=2000)
     p.add_argument("--dist", type=str, default="uniform", choices=["uniform", "normal"])
     p.add_argument("--plot", action="store_true", help="Enable plotting")
+    p.add_argument("--save_train", action="store_true", help="Enable saving data to train DCPA")
+    p.add_argument("--valid", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--seed", type=int, default=None)
 
     # optional extras
@@ -84,5 +96,5 @@ def parse_args() -> SimConfig:
     a = p.parse_args()
     return SimConfig(
         L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
-        dist=a.dist, isPlot=a.plot, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max
+        dist=a.dist, isPlot=a.plot, SaveToTrain=a.save_train, isValid=a.valid, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max
     )

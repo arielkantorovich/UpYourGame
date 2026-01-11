@@ -6,7 +6,7 @@ Created on : ------
 
 import numpy as np
 from scipy.stats import truncnorm
-
+from .wireless_data_structure import *
 
 def generate_gain_channel(
         N: int = 5,
@@ -207,6 +207,29 @@ def compute_objective(In: np.ndarray,
     total = np.sum(total, axis=1) # Sum On N
     obj = np.mean(total) # Calculate Average on L trilas
     return obj
+
+def set_g_struct(cfg: SimConfig) -> Sim_G:
+    """
+    The following Method set g_struct that include constant parameters
+    :param cfg: simulation configuration file
+    :return:  Sim_G
+            ----------------------------------
+            g: np.ndarray (L, N, N, K)
+            g_diag: np.ndarray (L, N, K)
+            g_zero: np.ndarray (L, N, K)
+    """
+    g = generate_gain_channel(N=cfg.N, L=cfg.L, K=cfg.K, alpha=cfg.alpha, R_link=cfg.Rlink, distribution=cfg.dist)
+    g.setflags(write=False)  # Constant array
+
+    g_diag = extract_g_diag(g)
+    g_diag.setflags(write=False)
+
+    eye = np.eye(cfg.N, dtype=bool)[None, :, :, None]  # (1, N, N, 1)
+    g_zero = np.where(eye, 0.0, g)
+    g_zero.setflags(write=False)
+
+    g_struct = Sim_G(g=g, g_diag=g_diag, g_zero=g_zero)
+    return g_struct
 
 
 

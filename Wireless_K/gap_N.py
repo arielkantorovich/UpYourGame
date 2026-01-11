@@ -30,20 +30,11 @@ def main(N_list: list, cfg: SimConfig, learning_rate: np.ndarray) -> None:
     for i, N in enumerate(N_list):
         # Define Constant Var's
         cfg.N = int(N)
+        print(f"N={cfg.N}")
         rec_NE = SimRecord.create(cfg)
         rec_opt = SimRecord.create(cfg)
 
-        g = generate_gain_channel(N=cfg.N, L=cfg.L, K=cfg.K, alpha=cfg.alpha, R_link=cfg.Rlink, distribution=cfg.dist)
-        g.setflags(write=False)  # Constant array
-
-        g_diag = extract_g_diag(g)
-        g_diag.setflags(write=False)
-
-        eye = np.eye(cfg.N, dtype=bool)[None, :, :, None]  # (1, N, N, 1)
-        g_zero = np.where(eye, 0.0, g)
-        g_zero.setflags(write=False)
-
-        g_struct = Sim_G(g=g, g_diag=g_diag, g_zero=g_zero)
+        g_struct = set_g_struct(cfg=cfg)
 
         # Define Initialize condition
         P_init = cfg.Border_ceil * np.random.rand(cfg.L, cfg.N, cfg.K)
@@ -71,8 +62,9 @@ def main(N_list: list, cfg: SimConfig, learning_rate: np.ndarray) -> None:
 
 if __name__ == "__main__":
     # Defin Basic Parameters
-    N_list = [15, 30, 50, 75, 90, 120]
+    N_list = [5, 15, 30, 50, 80]
     cfg = parse_args()
+    print(cfg)
     lr = np.ones((cfg.T,)) * cfg.lr_c
 
     main(N_list, cfg, lr)
