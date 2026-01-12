@@ -4,7 +4,8 @@ Created on : ------
 @author: Ariel_Kantorovich
 """
 from common.wireless_main import *
-from common.wireless_paths import *
+from Wireless_K.DNN_common.wireless_paths import *
+from Wireless_K.DNN_common.wireless_dataset import *
 
 def loop(cfg: SimConfig) -> Tuple[SimRecord, SimRecord]:
     """
@@ -49,8 +50,14 @@ if __name__ == '__main__':
         print("============= Save Data Results ====================")
         train_dir, valid_dir = make_dataset_dirs("Training_Data", N=config.N, K=config.K)
 
-        # save_split_npz(train_dir, X=X_train, y=y_train, prefix="data")
-        # save_split_npz(valid_dir, X=X_valid, y=y_valid, prefix="data")
+        X_train, Y_train, _ = build_player_subset_dataset(P=Train_rec_NE.P, In=Train_rec_NE.In, grad=Train_rec_opt.grad_norm_prior, N_subset=5)
+        X_valid, Y_valid, _ = build_player_subset_dataset(P=Valid_rec_NE.P, In=Valid_rec_NE.In, grad=Valid_rec_opt.grad_norm_prior, N_subset=5)
+
+        Z_train, _, _ = build_player_subset_dataset(P=Train_rec_opt.P, In=Train_rec_opt.In, grad=Train_rec_opt.grad_norm_prior, N_subset=5)
+        Z_valid, _, _ = build_player_subset_dataset(P=Valid_rec_opt.P, In=Valid_rec_opt.In, grad=Valid_rec_opt.grad_norm_prior, N_subset=5)
+
+        save_split_npz(train_dir, X=X_train, z=Z_train, y=Y_train, prefix="data")
+        save_split_npz(valid_dir, X=X_valid, z=Z_valid, y=Y_valid, prefix="data")
 
         print("Saved to:")
         print(" train:", train_dir)

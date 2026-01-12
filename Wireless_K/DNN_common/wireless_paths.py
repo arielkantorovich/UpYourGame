@@ -26,12 +26,12 @@ def make_dataset_dirs(base_dir: str | Path, *, N: int, K: int) -> tuple[Path, Pa
     return train_dir, valid_dir
 
 
-def save_split_npz(out_dir: Path, *, X: np.ndarray, y: np.ndarray, prefix: str) -> None:
+def save_split_npz(out_dir: Path, *, X: np.ndarray, z: np.ndarray, y: np.ndarray, prefix: str) -> None:
     """
     Save a split into one compressed file (easy to load later).
     """
     out_path = out_dir / f"{prefix}.npz"
-    np.savez_compressed(out_path, X=X, y=y)
+    np.savez_compressed(out_path, X=X, z=z, y=y)
 
 
 
@@ -42,7 +42,7 @@ def load_dataset_npz(
     K: int,
     L: int,
     prefix: str = "data"
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Load train and validation datasets saved as NPZ files.
 
@@ -68,36 +68,40 @@ def load_dataset_npz(
 
     with np.load(train_path) as train_data:
         X_train = train_data["X"]
+        Z_train = train_data["z"]
         y_train = train_data["y"]
 
     with np.load(valid_path) as valid_data:
         X_valid = valid_data["X"]
+        Z_valid = valid_data["z"]
         y_valid = valid_data["y"]
 
-    return X_train, y_train, X_valid, y_valid
+    return X_train, Z_train, y_train, X_valid, Z_valid, y_valid
 
 
 # ---- Usage example ----
 if __name__ == "__main__":
     N, K, L = 5, 14, 200
-    train_dir, valid_dir = make_dataset_dirs(r"C:\Users\arielka\PycharmProjects\Thesis_Disrbuted_Algorithms\Wireless_K\Training_Data", N=N, K=K, L=L)
+    train_dir, valid_dir = make_dataset_dirs(r"/Wireless_K/Training_Data", N=N, K=K, L=L)
 
     # fake example data
     X_train = np.random.randn(1000, N, K).astype(np.float32)
+    Z_train = np.random.randn(1000, N, K).astype(np.float32)
     y_train = np.random.randn(1000, N, K).astype(np.float32)
 
     X_valid = np.random.randn(200, N, K).astype(np.float32)
+    Z_valid = np.random.randn(200, N, K).astype(np.float32)
     y_valid = np.random.randn(200, N, K).astype(np.float32)
 
-    save_split_npz(train_dir, X=X_train, y=y_train, prefix="data")
-    save_split_npz(valid_dir, X=X_valid, y=y_valid, prefix="data")
+    save_split_npz(train_dir, X=X_train, z=Z_train, y=y_train, prefix="data")
+    save_split_npz(valid_dir, X=X_valid, z=Z_valid, y=y_valid, prefix="data")
 
     print("Saved to:")
     print(" train:", train_dir)
     print(" valid:", valid_dir)
 
-    X_tr, y_tr, X_va, y_va = load_dataset_npz(
-        r"C:\Users\arielka\PycharmProjects\Thesis_Disrbuted_Algorithms\Wireless_K\Training_Data",
+    X_tr, Z_tr, y_tr, X_va, Z_va, y_va = load_dataset_npz(
+        r"/Wireless_K/Training_Data",
         N=N, K=K, L=L
     )
 
