@@ -7,6 +7,7 @@ Created on : ------
 from pathlib import Path
 import numpy as np
 from typing import Tuple
+import torch
 
 def make_dataset_dirs(base_dir: str | Path, *, N: int, K: int) -> tuple[Path, Path]:
     """
@@ -38,9 +39,6 @@ def save_split_npz(out_dir: Path, *, X: np.ndarray, z: np.ndarray, y: np.ndarray
 def load_dataset_npz(
     base_dir: str | Path,
     *,
-    N: int,
-    K: int,
-    L: int,
     prefix: str = "data"
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -56,10 +54,9 @@ def load_dataset_npz(
     """
 
     base_dir = Path(base_dir)
-    run_dir = base_dir / f"N{N}_K{K}_L{L}"
 
-    train_path = run_dir / "train" / f"{prefix}.npz"
-    valid_path = run_dir / "valid" / f"{prefix}.npz"
+    train_path = base_dir / "train" / f"{prefix}.npz"
+    valid_path = base_dir / "valid" / f"{prefix}.npz"
 
     if not train_path.exists():
         raise FileNotFoundError(f"Train file not found: {train_path}")
@@ -78,6 +75,37 @@ def load_dataset_npz(
 
     return X_train, Z_train, y_train, X_valid, Z_valid, y_valid
 
+def save_model_weights(
+    model: torch.nn.Module,
+    output_dir: str,
+    filename: str,
+) -> Path:
+    """
+    Save model weights to output_dir/filename.
+
+    Returns the full path to the saved file.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    save_path = output_dir / filename
+
+    torch.save(model.state_dict(), save_path)
+
+    return save_path
+
+def load_model_weights(
+    model: torch.nn.Module,
+    weights_path: str | Path,
+    device: torch.device,
+) -> torch.nn.Module:
+    """
+    Load model weights into an existing model instance.
+    """
+    state_dict = torch.load(weights_path, map_location=device)
+    model.load_state_dict(state_dict)
+    model.to(device)
+    return model
 
 # ---- Usage example ----
 if __name__ == "__main__":

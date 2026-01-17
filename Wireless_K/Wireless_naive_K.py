@@ -27,6 +27,12 @@ if __name__ == '__main__':
     P_init.setflags(write=False)
     P_NE = P_init.copy()
     P_opt = P_init.copy()
+    P_DCPA = P_init.copy()
+
+    # Exploration process
+    # cfg_exp = SimConfig()
+    # main_loop(cfg, rec_NE, g_struct, P_NE, lr, GradMode.NAIVE_NASH)
+    # alpha_k, beta_k = wireless_NN_predict()
 
     # Run Main loops
     main_loop(cfg, rec_NE, g_struct, P_NE, lr, GradMode.NAIVE_NASH)
