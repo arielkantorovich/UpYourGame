@@ -10,6 +10,7 @@ import torch.optim as optim
 from typing import Callable, Tuple, List, Optional
 from .Train_DataStruct import *
 from .wireless_NN import Wireless_NN
+from pathlib import Path
 
 def build_optimizer(model: nn.Module, cfg: TrainConfig) -> optim.Optimizer:
     """
@@ -231,7 +232,7 @@ def get_IO_NN(train_cfg: TrainConfig) -> Tuple[int, int]:
 
 
 @torch.no_grad()
-def wireless_NN_predict(
+def wireless_NN_predict(L: int, N: int,
     input_path: str,
     *,
     cfg_name: str = "train_config.yaml",
@@ -248,10 +249,10 @@ def wireless_NN_predict(
         device: "cuda", "cpu", or None for auto
 
     Returns:
-        alpha_np: np.ndarray on CPU
-        beta_np: np.ndarray on CPU (None if is_alpha_beta == False)
+        alpha_np: np.ndarray on CPU size (L, N, K)
+        beta_np: np.ndarray on CPU (None if is_alpha_beta == False) size (L, N, K)
     """
-    cfg_path = input_path + cfg_name
+    cfg_path = input_path + "/" + cfg_name
     train_cfg, _ = load_configs_from_yaml(cfg_path)
 
     if device is None:
@@ -260,9 +261,9 @@ def wireless_NN_predict(
 
     # Build model + load weights
     input_dim, output_dim = get_IO_NN(train_cfg)
-    model = Wireless_NN(input_size=input_dim, output_size=output_dim)
+    model = Wireless_NN(input_size=input_dim, output_size=output_dim).to(dev)
 
-    weights_path = input_path + "results" + "model.pt"
+    weights_path = Path(input_path + "/model.pt")
     if not weights_path.exists():
         raise FileNotFoundError(f"Weights not found: {weights_path}")
 
@@ -271,7 +272,7 @@ def wireless_NN_predict(
     model.eval()
 
     # Build model input from P
-    inputs_pre = inputs_pre.to(device)
+    inputs_pre = inputs_pre.to(dev)
 
     # Forward
     outputs = model(inputs_pre)
@@ -282,16 +283,17 @@ def wireless_NN_predict(
     #   else:             outputs shape (B, K)  -> alpha(0..K-1)
     K = int(train_cfg.K)
 
-    if train_cfg.is_alpha_beta:
+    if train_cfg.isAlphaBeta:
         if outputs.shape[-1] != 2 * K:
             raise ValueError(f"Expected model output dim {2*K}, got {outputs.shape[-1]}")
-        alpha = outputs[..., :K]
-        beta = outputs[..., K:2*K]
+        alpha = outputs[..., :K].view(L, N, K)
+        beta = outputs[..., K:2*K].view(L, N, K)
         alpha_np = alpha.detach().cpu().numpy()
         beta_np = beta.detach().cpu().numpy()
         return alpha_np, beta_np
     else:
         if outputs.shape[-1] != K:
             raise ValueError(f"Expected model output dim {K}, got {outputs.shape[-1]}")
-        alpha_np = outputs.detach().cpu().numpy()
+        alpha_np = outputs.detach().view(L, N, K)
+        alpha_np = alpha_np.cpu().numpy()
         return alpha_np, None

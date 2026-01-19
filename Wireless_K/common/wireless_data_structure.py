@@ -28,6 +28,7 @@ class SimConfig:
     Border_floor: float = 0.0
     Border_ceil: float = 1.0
     N0: float = 0.001
+    train_path: str = None
     seed: int | None = None
 
 
@@ -89,6 +90,7 @@ def parse_args() -> SimConfig:
     p.add_argument("--save_train", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--valid", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--train_path", type=str, default=None, help="Path to training data e.g Training_data/results")
 
     # optional extras
     p.add_argument("--alpha", type=float, default=10e-3)
@@ -96,5 +98,6 @@ def parse_args() -> SimConfig:
     a = p.parse_args()
     return SimConfig(
         L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
-        dist=a.dist, isPlot=a.plot, SaveToTrain=a.save_train, isValid=a.valid, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max
+        dist=a.dist, isPlot=a.plot, SaveToTrain=a.save_train, isValid=a.valid, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max,
+        train_path=a.train_path
     )
