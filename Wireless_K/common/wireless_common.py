@@ -8,6 +8,11 @@ import numpy as np
 from scipy.stats import truncnorm
 from .wireless_data_structure import *
 
+
+def gap_percent(opt: float, other: float, eps: float = 1e-12) -> float:
+    """Return percent gap from opt: 100*(opt-other)/(opt+eps)."""
+    return 100.0 * (opt - other) / (opt + eps)
+
 def generate_gain_channel(
         N: int = 5,
         L: int = 200,

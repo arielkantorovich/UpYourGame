@@ -46,7 +46,7 @@ def main_train_loop(args: argparse.ArgumentParser, train_cfg: TrainConfig, sched
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("device :", device)
 
-    input_dim, output_dim = get_IO_NN(train_cfg)
+    input_dim, output_dim = get_IO_NN(train_cfg.isAlphaBeta, train_cfg)
     print(f"input_dim: {input_dim} , output_dim: {output_dim}")
 
     model = Wireless_NN(input_size=input_dim, output_size=output_dim).to(device)

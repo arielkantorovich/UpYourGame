@@ -7,7 +7,8 @@ Created on : ------
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_NE_opt_GAP(T: int, obj_NE: np.ndarray, obj_opt: np.ndarray, obj_DCPA: np.ndarray) -> None:
+def plot_NE_opt_GAP(T: int, obj_NE: np.ndarray, obj_opt: np.ndarray,
+                    obj_DCPA_AlphaBeta: np.ndarray, obj_DCPA_Alpha: np.ndarray) -> None:
     """
     The following function plot simulation results and gap between NE and OPT
     :param T:
@@ -27,8 +28,8 @@ def plot_NE_opt_GAP(T: int, obj_NE: np.ndarray, obj_opt: np.ndarray, obj_DCPA: n
     plt.figure(figsize=(8, 5))
     plt.plot(t, obj_opt, label="OPT")
     plt.plot(t, obj_NE, label="NE")
-    plt.plot(t, obj_DCPA, label="DCPA")
-
+    plt.plot(t, obj_DCPA_AlphaBeta, label=r"DCPA-($\alpha_n,\beta_n$)")
+    plt.plot(t, obj_DCPA_Alpha, label=r"DCPA-($\alpha_n$)")
     # Vertical line BETWEEN NE[T-1] and OPT[T-1]
     plt.vlines(
         x=final_iter,

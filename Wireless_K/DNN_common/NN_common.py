@@ -216,14 +216,14 @@ def fit(
     return train_list, valid_list
 
 
-def get_IO_NN(train_cfg: TrainConfig) -> Tuple[int, int]:
+def get_IO_NN(isAlphaBeta: bool, train_cfg: TrainConfig) -> Tuple[int, int]:
     """
     return input and output size depends on configuration
     :param train_cfg:
     :return:
     """
     input_dim = 2 * train_cfg.K * train_cfg.T
-    if train_cfg.isAlphaBeta:
+    if isAlphaBeta:
         output_dim = train_cfg.K * 2
     else:
         output_dim = train_cfg.K
@@ -235,6 +235,7 @@ def get_IO_NN(train_cfg: TrainConfig) -> Tuple[int, int]:
 def wireless_NN_predict(L: int, N: int,
     input_path: str,
     *,
+    isAlphaBeta: bool = True,
     cfg_name: str = "train_config.yaml",
     device: Optional[str] = None,
     inputs_pre: torch.Tensor
@@ -260,10 +261,14 @@ def wireless_NN_predict(L: int, N: int,
     dev = torch.device(device)
 
     # Build model + load weights
-    input_dim, output_dim = get_IO_NN(train_cfg)
+    input_dim, output_dim = get_IO_NN(isAlphaBeta, train_cfg)
     model = Wireless_NN(input_size=input_dim, output_size=output_dim).to(dev)
 
-    weights_path = Path(input_path + "/model.pt")
+    if isAlphaBeta:
+        weights_path = Path(input_path + "/model.pt")
+    else:
+        weights_path = Path(input_path + "/model_alpha.pt")
+
     if not weights_path.exists():
         raise FileNotFoundError(f"Weights not found: {weights_path}")
 
@@ -283,7 +288,7 @@ def wireless_NN_predict(L: int, N: int,
     #   else:             outputs shape (B, K)  -> alpha(0..K-1)
     K = int(train_cfg.K)
 
-    if train_cfg.isAlphaBeta:
+    if isAlphaBeta:
         if outputs.shape[-1] != 2 * K:
             raise ValueError(f"Expected model output dim {2*K}, got {outputs.shape[-1]}")
         alpha = outputs[..., :K].view(L, N, K)

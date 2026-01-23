@@ -140,3 +140,31 @@ def Exploration_Process(
     inputs_pre = build_inputs_for_nn_from_rec(rec, cfg)
     # If you don't need meta, just return inputs_pre
     return inputs_pre
+
+
+
+def run_simulation(
+    cfg: SimConfig,
+    g_struct: Sim_G,
+    P_init: np.ndarray,
+    lr: np.ndarray,
+    grad_mode: GradMode,
+    *,
+    alpha_k=None,
+    beta_k=None,
+) -> SimRecord:
+    """Run a single simulation mode and return its record."""
+    rec = SimRecord.create(cfg)
+    P = P_init.copy()
+
+    main_loop(
+        cfg=cfg,
+        rec=rec,
+        G=g_struct,
+        P=P,
+        lr=lr,
+        grad_mode=grad_mode,
+        alpha_k=alpha_k,
+        beta_k=beta_k,
+    )
+    return rec
