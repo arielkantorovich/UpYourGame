@@ -22,6 +22,7 @@ class SimConfig:
     T: int = 2000
     dist: str = "uniform"
     isPlot: bool = False
+    isDebug: bool = False
     SaveToTrain: bool = False
     isValid: bool = False
     alpha: float = 10e-3
@@ -87,6 +88,7 @@ def parse_args() -> SimConfig:
     p.add_argument("--T", type=int, default=2000)
     p.add_argument("--dist", type=str, default="uniform", choices=["uniform", "normal"])
     p.add_argument("--plot", action="store_true", help="Enable plotting")
+    p.add_argument("--debug", action="store_true", help="Simulate without DCPA")
     p.add_argument("--save_train", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--valid", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--seed", type=int, default=None)
@@ -99,5 +101,5 @@ def parse_args() -> SimConfig:
     return SimConfig(
         L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
         dist=a.dist, isPlot=a.plot, SaveToTrain=a.save_train, isValid=a.valid, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max,
-        train_path=a.train_path
+        train_path=a.train_path, isDebug=a.debug
     )
