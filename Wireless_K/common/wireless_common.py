@@ -9,6 +9,37 @@ from scipy.stats import truncnorm
 from .wireless_data_structure import *
 
 
+def project_onto_simplex(V, z=1):
+    """
+    Project matrix V onto the probability simplex if the sum exceeds z.
+    :param V: numpy array, matrix of size (LxNxK)
+    :param z: float, norm radius of the projected vector
+    :return: numpy array, matrix of the same size as V, with vectors conditionally projected onto the probability simplex
+    """
+    L, N, K = V.shape
+    # ensure positive power transmission
+    np.clip(V, a_min=0, a_max=None, out=V)
+    # Sum along the last axis for each (L, N) slice
+    sum_V = np.sum(V, axis=-1, keepdims=True)
+
+    # Identify vectors that need projection
+    mask = sum_V > z
+
+    # Only sort and perform projection where sum exceeds z
+    U = np.sort(V, axis=-1)[:, :, ::-1]
+    cssv = np.cumsum(U, axis=-1) - z
+    ind = np.arange(1, V.shape[-1] + 1)
+    cond = (U - cssv / ind) > 0
+    rho = np.count_nonzero(cond, axis=-1, keepdims=True)
+
+    # Compute theta for projection where needed
+    theta = np.take_along_axis(cssv, rho - 1, axis=-1) / rho
+    projection = np.maximum(V - theta, 0)
+
+    # Use mask to select between original V and projected values
+    result = np.where(mask, projection, V)
+    return result
+
 def gap_percent(opt: float, other: float, eps: float = 1e-12) -> float:
     """Return percent gap from opt: 100*(opt-other)/(opt+eps)."""
     return 100.0 * (opt - other) / (opt + eps)

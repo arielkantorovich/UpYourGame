@@ -58,6 +58,7 @@ def main(N_list: list, cfg: SimConfig, learning_rate: np.ndarray) -> None:
     if cfg.isPlot:
         print("============= Visualize Results ==================")
         plot_GAP_N(N_list, diff_prec_fun_N)
+    print("============= Finsh Run gap_N simulation===============")
 
 
 if __name__ == "__main__":

@@ -69,7 +69,8 @@ def main_loop(cfg: SimConfig, rec: SimRecord, G: Sim_G, P: np.ndarray, lr: np.nd
             raise ValueError(f"Grad Mode {grad_mode} not recognized.")
 
         P = P + lr[t] * (gradients_local + gradients_residual + gradients_ml)
-        project_box(P, cfg.Border_floor, cfg.Border_ceil)
+        # project_box(P, cfg.Border_floor, cfg.Border_ceil)
+        P = project_onto_simplex(P, cfg.Border_ceil)
 
         rec.P[t] = P
         rec.obj[t] = compute_objective(In, G.g_diag, P, cfg.N0)
