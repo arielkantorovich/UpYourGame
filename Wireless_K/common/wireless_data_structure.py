@@ -16,6 +16,7 @@ class SimConfig:
     """
     L: int = 200
     N: int = 5
+    N_sub: int = 5
     K: int = 14
     Rlink: float = 0.1
     lr_c: float = 0.002
@@ -29,8 +30,30 @@ class SimConfig:
     Border_floor: float = 0.0
     Border_ceil: float = 1.0
     N0: float = 0.001
-    train_path: str = None
+    train_path: str | None = None
     seed: int | None = None
+
+    def copy(self) -> "SimConfig":
+        """Return a shallow copy (safe: all fields are immutable)."""
+        return SimConfig(
+            L=self.L,
+            N=self.N,
+            K=self.K,
+            Rlink=self.Rlink,
+            lr_c=self.lr_c,
+            T=self.T,
+            dist=self.dist,
+            isPlot=self.isPlot,
+            isDebug=self.isDebug,
+            SaveToTrain=self.SaveToTrain,
+            isValid=self.isValid,
+            alpha=self.alpha,
+            Border_floor=self.Border_floor,
+            Border_ceil=self.Border_ceil,
+            N0=self.N0,
+            train_path=self.train_path,
+            seed=self.seed,
+        )
 
 
 @dataclass(slots=True)
@@ -92,6 +115,7 @@ def parse_args() -> SimConfig:
     p.add_argument("--save_train", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--valid", action="store_true", help="Enable saving data to train DCPA")
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--N_sub", type=int, default=5)
     p.add_argument("--train_path", type=str, default=None, help="Path to training data e.g Training_data/results")
 
     # optional extras
@@ -101,5 +125,5 @@ def parse_args() -> SimConfig:
     return SimConfig(
         L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
         dist=a.dist, isPlot=a.plot, SaveToTrain=a.save_train, isValid=a.valid, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max,
-        train_path=a.train_path, isDebug=a.debug
+        train_path=a.train_path, isDebug=a.debug, N_sub=a.N_sub,
     )

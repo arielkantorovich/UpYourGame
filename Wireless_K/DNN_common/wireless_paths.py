@@ -36,42 +36,60 @@ def save_split_npz(out_dir: Path, *, X: np.ndarray, z: np.ndarray, y: np.ndarray
 
 
 
+def _load_npz_shards(dir_path: Path, prefix: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Load either:
+      - dir_path/{prefix}.npz
+      - or dir_path/{prefix}_*.npz (shards)
+    Return concatenated X, z, y.
+    """
+    single = dir_path / f"{prefix}.npz"
+    if single.exists():
+        with np.load(single) as d:
+            return d["X"], d["z"], d["y"]
+
+    shards = sorted(dir_path.glob(f"{prefix}_*.npz"))
+    if not shards:
+        raise FileNotFoundError(f"No {prefix}.npz or {prefix}_*.npz found in: {dir_path}")
+
+    Xs, Zs, Ys = [], [], []
+    for f in shards:
+        with np.load(f) as d:
+            Xs.append(d["X"])
+            Zs.append(d["z"])
+            Ys.append(d["y"])
+
+    X = np.concatenate(Xs, axis=0)
+    Z = np.concatenate(Zs, axis=0)
+    y = np.concatenate(Ys, axis=0)
+    return X, Z, y
+
+
 def load_dataset_npz(
     base_dir: str | Path,
     *,
-    prefix: str = "data"
+    prefix: str = "data",
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Load train and validation datasets saved as NPZ files.
+    Loads train/valid datasets from:
+      base_dir/train/{prefix}.npz OR base_dir/train/{prefix}_*.npz
+      base_dir/valid/{prefix}.npz OR base_dir/valid/{prefix}_*.npz
 
-    Expected structure:
-      base_dir / f"N{N}_K{K}_L{L}" / train / {prefix}.npz
-      base_dir / f"N{N}_K{K}_L{L}" / valid / {prefix}.npz
-
-    Returns
-    -------
-    X_train, y_train, X_valid, y_valid
+    Returns:
+      X_train, Z_train, y_train, X_valid, Z_valid, y_valid
     """
-
     base_dir = Path(base_dir)
 
-    train_path = base_dir / "train" / f"{prefix}.npz"
-    valid_path = base_dir / "valid" / f"{prefix}.npz"
+    train_dir = base_dir / "train"
+    valid_dir = base_dir / "valid"
 
-    if not train_path.exists():
-        raise FileNotFoundError(f"Train file not found: {train_path}")
-    if not valid_path.exists():
-        raise FileNotFoundError(f"Valid file not found: {valid_path}")
+    if not train_dir.exists():
+        raise FileNotFoundError(f"Train dir not found: {train_dir}")
+    if not valid_dir.exists():
+        raise FileNotFoundError(f"Valid dir not found: {valid_dir}")
 
-    with np.load(train_path) as train_data:
-        X_train = train_data["X"]
-        Z_train = train_data["z"]
-        y_train = train_data["y"]
-
-    with np.load(valid_path) as valid_data:
-        X_valid = valid_data["X"]
-        Z_valid = valid_data["z"]
-        y_valid = valid_data["y"]
+    X_train, Z_train, y_train = _load_npz_shards(train_dir, prefix)
+    X_valid, Z_valid, y_valid = _load_npz_shards(valid_dir, prefix)
 
     return X_train, Z_train, y_train, X_valid, Z_valid, y_valid
 
