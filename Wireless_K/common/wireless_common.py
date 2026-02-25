@@ -67,7 +67,9 @@ def generate_gain_channel(
 
     # Tx locations: (L, N, 2)
     if distribution == "uniform":
-        Transceivers = np.random.rand(L, N, 2) * 2 - 1
+        area_scale = 0.3 * np.sqrt(N)
+        Transceivers = (np.random.rand(L, N, 2) * 2 - 1) * area_scale
+        # Transceivers = np.random.rand(L, N, 2) * 2 - 1
     elif distribution == "normal":
         lower, upper = -1, 1
         mu, sigma = 0, 0.5

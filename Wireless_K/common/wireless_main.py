@@ -75,7 +75,7 @@ def main_loop(cfg: SimConfig, rec: SimRecord, G: Sim_G, P: np.ndarray, lr: np.nd
         rec.P[t] = P
         rec.obj[t] = compute_objective(In, G.g_diag, P, cfg.N0)
 
-        if cfg.SaveToTrain:
+        if cfg.SaveToTrain or cfg.isDebug:
             rec.grad_norm_prior[t] = gradients_residual
             rec.In[t] = In
 
