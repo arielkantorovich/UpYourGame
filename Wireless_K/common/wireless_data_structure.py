@@ -20,6 +20,7 @@ class SimConfig:
     K: int = 14
     Rlink: float = 0.1
     lr_c: float = 0.002
+    lr_dec_factor: float = 10.0
     T: int = 2000
     dist: str = "uniform"
     isPlot: bool = False
@@ -106,8 +107,9 @@ def parse_args() -> SimConfig:
     p.add_argument("--K", type=int, default=14)
     p.add_argument("--Rlink", type=float, default=0.1)
     p.add_argument("--N0", type=float, default=0.001)
-    p.add_argument("--p_max", type=float, default=1.0, help="border_ceill maximum power projection")
+    p.add_argument("--p_max", type=float, default=3.0, help="border_ceill maximum power projection")
     p.add_argument("--lr_c", type=float, default=0.002, help="Learning rate coefficient for the gradient update (default: 0.002)")
+    p.add_argument("--lr_dec_factor", type=float, default=10.0, help="Learning rate coefficient for the decay (default: 10.0)")
     p.add_argument("--T", type=int, default=2000)
     p.add_argument("--dist", type=str, default="uniform", choices=["uniform", "normal"])
     p.add_argument("--plot", action="store_true", help="Enable plotting")
@@ -123,7 +125,7 @@ def parse_args() -> SimConfig:
 
     a = p.parse_args()
     return SimConfig(
-        L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, T=a.T,
+        L=a.L, N=a.N, K=a.K, Rlink=a.Rlink, lr_c=a.lr_c, lr_dec_factor=a.lr_dec_factor, T=a.T,
         dist=a.dist, isPlot=a.plot, SaveToTrain=a.save_train, isValid=a.valid, seed=a.seed, alpha=a.alpha, Border_ceil=a.p_max,
         train_path=a.train_path, isDebug=a.debug, N_sub=a.N_sub,
     )

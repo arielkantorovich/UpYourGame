@@ -69,7 +69,8 @@ def main_train_loop(args: argparse.ArgumentParser, train_cfg: TrainConfig, sched
         scheduler=scheduler,  # can be None
     )
 
-    save_path = save_model_weights(model, args.output_dir, args.weights_name)
+    weights_name = "model.pt" if train_cfg.isAlphaBeta else "model_isAlpha.pt"
+    save_path = save_model_weights(model, args.output_dir, weights_name)
     print(f"Save model: {save_path}")
 
     _ = plot_loss(args.output_dir, train_cfg.epochs, train_list, valid_list)

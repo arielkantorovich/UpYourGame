@@ -53,7 +53,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", required=True, type=str, help="Path to YAML config file")
     p.add_argument("--input_dir", required=True, type=str, help="Input dataset directory")
     p.add_argument("--output_dir", required=True, type=str, help="Output directory (checkpoints/logs)")
-    p.add_argument("--weights_name", type=str, default="model.pt")
     return p
 
 

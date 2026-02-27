@@ -265,12 +265,21 @@ def wireless_NN_predict(L: int, N: int,
     model = Wireless_NN(input_size=input_dim, output_size=output_dim).to(dev)
 
     if isAlphaBeta:
-        weights_path = Path(input_path + "/model.pt")
+        candidates = ["model.pt", "model.py"]
     else:
-        weights_path = Path(input_path + "/model_alpha.pt")
+        candidates = ["model_isAlpha.pt", "model_alpha.pt", "model_isAlpha.py", "model_isAlpha", "model_alpha"]
 
-    if not weights_path.exists():
-        raise FileNotFoundError(f"Weights not found: {weights_path}")
+    weights_path = None
+    for name in candidates:
+        p = Path(input_path) / name
+        if p.exists():
+            weights_path = p
+            break
+
+    if weights_path is None:
+        raise FileNotFoundError(
+            f"Weights not found in {input_path}. Tried: {candidates}"
+        )
 
     state_dict = torch.load(weights_path, map_location=dev)
     model.load_state_dict(state_dict)

@@ -6,6 +6,18 @@ Created on : ------
 from common.wireless_main import *
 from common.wireless_common import *
 from DNN_common.NN_common import *
+from dataclasses import fields
+import yaml
+
+
+def _save_run_config(cfg: SimConfig) -> None:
+    """Save current simulation config to <train_path>/config_run.yaml."""
+    if cfg.train_path is None:
+        return
+    out_path = Path(cfg.train_path) / "config_run.yaml"
+    cfg_dict = {f.name: getattr(cfg, f.name) for f in fields(SimConfig)}
+    with open(out_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump({"sim_config": cfg_dict}, f, sort_keys=False)
 
 
 if __name__ == "__main__":
@@ -17,8 +29,12 @@ if __name__ == "__main__":
     print("================================ Running Wireless Simulation ===============================")
     print(cfg)
 
+    if not cfg.isDebug:
+        _save_run_config(cfg)
+
     g_struct = set_g_struct(cfg)
     lr = np.full(cfg.T, cfg.lr_c)
+    lr_AlphaBeta = np.full(cfg.T, cfg.lr_c/cfg.lr_dec_factor)
 
     # Initial powers (shared)
     P_init = cfg.Border_ceil * np.random.rand(cfg.L, cfg.N, cfg.K)
@@ -66,19 +82,21 @@ if __name__ == "__main__":
     # ------------------------
     print("================================ Running Main Simulations ==================================")
     runs = {
-        "NE": {"grad_mode": GradMode.NAIVE_NASH, "alpha": None, "beta": None},
-        "OPT": {"grad_mode": GradMode.OPTIMAL, "alpha": None, "beta": None},
+        "NE": {"grad_mode": GradMode.NAIVE_NASH, "lr": lr, "alpha": None, "beta": None},
+        "OPT": {"grad_mode": GradMode.OPTIMAL, "lr": lr, "alpha": None, "beta": None},
     }
 
     if not cfg.isDebug:
         runs.update({
             "DCPA-alphaBeta": {
                 "grad_mode": GradMode.PRIOR_APPROXIMATION,
+                "lr": lr_AlphaBeta,
                 "alpha": alpha_k,
                 "beta": beta_k,
             },
             "DCPA-alpha": {
                 "grad_mode": GradMode.PRIOR_APPROXIMATION,
+                "lr": lr,
                 "alpha": only_alpha_k,
                 "beta": np.zeros_like(only_alpha_k),
             }
@@ -92,7 +110,7 @@ if __name__ == "__main__":
             cfg=cfg,
             g_struct=g_struct,
             P_init=P_init,
-            lr=lr,
+            lr=params["lr"],
             grad_mode=params["grad_mode"],
             alpha_k=params["alpha"],
             beta_k=params["beta"],
