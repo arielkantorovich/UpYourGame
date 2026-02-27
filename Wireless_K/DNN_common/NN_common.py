@@ -50,31 +50,28 @@ def build_scheduler(
 ) -> Optional[optim.lr_scheduler._LRScheduler]:
     """
     Factory that returns:
-      - None if cfg.type == NONE
-      - StepLR if cfg.type == STEP
-      - CosineAnnealingLR if cfg.type == COSINE
+      - None if cfg is None
+      - StepLR for StepSchedulerConfig
+      - CosineAnnealingLR for CosineSchedulerConfig
     """
-    if cfg is None:  # <-- handle None case
+    if cfg is None:
         return None
 
-    if cfg.type == SchedulerType.NONE:
-        return None
-
-    if cfg.type == SchedulerType.STEP:
+    if isinstance(cfg, StepSchedulerConfig):
         return optim.lr_scheduler.StepLR(
             optimizer,
             step_size=cfg.step_size,
             gamma=cfg.gamma,
         )
 
-    if cfg.type == SchedulerType.COSINE:
+    if isinstance(cfg, CosineSchedulerConfig):
         return optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             T_max=cfg.tmax,
             eta_min=cfg.eta_min,
         )
 
-    raise ValueError(f"Unknown scheduler type: {cfg.type}")
+    raise ValueError(f"Unknown scheduler config type: {type(cfg).__name__}")
 
 
 
