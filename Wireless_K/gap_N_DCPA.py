@@ -89,6 +89,47 @@ def plot_gap_scatter(results: dict[str, np.ndarray], output_path: Path) -> None:
     plt.close()
 
 
+def plot_improvement_from_nash_scatter(results: dict[str, np.ndarray], output_path: Path) -> None:
+    """Scatter plot of improvement(%) over NE baseline vs number of agents N."""
+    n_vals = results["N"]
+    ne_vals = results["NE"]
+
+    # Improvement is measured as relative decrease in gap from optimal.
+    # Positive values indicate better performance than Nash (NE).
+    alpha_improvement = (ne_vals - results["alpha"]) / ne_vals * 100.0
+    alphabeta_improvement = (ne_vals - results["alphaBeta"]) / ne_vals * 100.0
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(
+        n_vals,
+        alpha_improvement,
+        label=r"DCPA-($\alpha_n$)",
+        s=90,
+        marker="s",
+    )
+    plt.scatter(
+        n_vals,
+        alphabeta_improvement,
+        label=r"DCPA-($\alpha_n,\beta_n$)",
+        s=90,
+        marker="^",
+    )
+
+    for n_val, imp_val in zip(n_vals, alphabeta_improvement):
+        plt.annotate(f"N={int(n_val)}", (n_val, imp_val), textcoords="offset points", xytext=(4, 6), fontsize=8)
+
+    plt.xlabel("Number of agents (N)")
+    plt.ylabel("Improvement from Nash (%)")
+    plt.title("Improvement from Nash Across Techniques")
+    plt.grid(True, alpha=0.35)
+    plt.legend()
+    plt.tight_layout()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Plot DCPA gap scatter for all N*_K5 inference results.")
     parser.add_argument(
@@ -109,6 +150,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path(__file__).resolve().parent / "Training_Data" / "gap_N_DCPA_scatter.png",
         help="Output image path.",
     )
+    parser.add_argument(
+        "--output-improvement",
+        type=Path,
+        default=Path(__file__).resolve().parent / "Training_Data" / "improvement_from_Nash_N_DCPA_scatter.png",
+        help="Output image path for improvement-from-Nash plot.",
+    )
     return parser
 
 
@@ -116,7 +163,9 @@ def main() -> None:
     args = build_parser().parse_args()
     results = load_all_inference_results(args.base_dir, k_value=args.k)
     plot_gap_scatter(results, args.output)
+    plot_improvement_from_nash_scatter(results, args.output_improvement)
     print(f"Saved plot to: {args.output}")
+    print(f"Saved improvement plot to: {args.output_improvement}")
 
 
 if __name__ == "__main__":
