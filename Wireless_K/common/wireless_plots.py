@@ -8,13 +8,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def plot_NE_opt_GAP(T: int, isDebug: bool, obj_NE: np.ndarray, obj_opt: np.ndarray,
-                    obj_DCPA_AlphaBeta: np.ndarray, obj_DCPA_Alpha: np.ndarray) -> None:
+                    obj_DCPA_AlphaBeta: np.ndarray, obj_DCPA_Alpha: np.ndarray, title_draw: dict) -> None:
     """
     The following function plot simulation results and gap between NE and OPT
     :param T:
     :param isDebug: plot only nash and optimal case debug mode
     :param obj_NE: (T, ) nash objective record
     :param obj_opt: (T, ) optimal objective record
+    :param obj_DCPA_AlphaBeta: (T, ) dcpa objective record
+    :param obj_DCPA_Alpha: (T, ) dcpa objective record
+    :param title_draw: plot title parameters such as N R link etc.
     :return: None
     """
     final_iter = T - 1
@@ -56,7 +59,7 @@ def plot_NE_opt_GAP(T: int, isDebug: bool, obj_NE: np.ndarray, obj_opt: np.ndarr
 
     plt.xlabel("# Iteration")
     plt.ylabel("# Objective")
-    plt.title("Final Nash Gap vs Optimal")
+    plt.title(f"N = {title_draw['N']}, K = {title_draw['K']}, Rlink = {title_draw['Rlink']}")
     plt.legend()
     plt.tight_layout()
     plt.show()

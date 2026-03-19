@@ -120,6 +120,7 @@ if __name__ == "__main__":
     # 4) Visualization
     # ------------------------
     if cfg.isPlot:
+        draw_dict = {"N": cfg.N, "K": cfg.K, "L": cfg.L, "Rlink": cfg.Rlink}
         print("================================ Visualizing Results ======================================")
         plot_NE_opt_GAP(
             cfg.T,
@@ -127,7 +128,7 @@ if __name__ == "__main__":
             results["NE"].obj,
             results["OPT"].obj,
             np.zeros_like(results["NE"].obj) if cfg.isDebug else results["DCPA-alphaBeta"].obj,
-            np.zeros_like(results["NE"].obj) if cfg.isDebug else results["DCPA-alpha"].obj,
+            np.zeros_like(results["NE"].obj) if cfg.isDebug else results["DCPA-alpha"].obj, draw_dict
         )
 
     # --------------------------------------------------------------
