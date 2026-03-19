@@ -6,6 +6,7 @@ Created on : ------
 
 from utils.quad_utils import *
 from utils.data_structure import *
+from utils.plot_utils import plot_quadratic_mean_cost
 
 def main(cfg: SimConfig) -> None:
     Q, B = generate_Q_B(
@@ -21,7 +22,11 @@ def main(cfg: SimConfig) -> None:
     ne_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
     optimal_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
     prior_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
-    diagonals_est = np.expand_dims(np.diagonal(Q, axis1=1, axis2=2), axis=-1)
+    diagonals_est = estimate_diagonals(
+        T_exploration=cfg.T_exploration,
+        Q=Q,
+        B=B,
+    )
 
     IterationLoop(
         cfg=cfg,
@@ -51,6 +56,19 @@ def main(cfg: SimConfig) -> None:
         diagonals_est=diagonals_est,
     )
 
+    if cfg.isPlot:
+        plot_quadratic_mean_cost(
+            ne_mean_cost=ne_record.mean_cost,
+            optimal_mean_cost=optimal_record.mean_cost,
+            dcpa_mean_cost=prior_record.mean_cost,
+            num_players=cfg.N,
+            debug=cfg.debug,
+        )
+
+    print(f"Final mean cost NE: {ne_record.mean_cost[-1]:.6f}")
+    print(f"Final mean cost Optimal: {optimal_record.mean_cost[-1]:.6f}")
+    print(f"Final mean cost DCPA: {prior_record.mean_cost[-1]:.6f}")
+    print(f"Exploration turns used for diagonal estimation: {cfg.T_exploration}")
     print("Quadratic simulation finished.")
 
 

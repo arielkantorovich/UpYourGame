@@ -83,6 +83,42 @@ def _build_lr_schedule(cfg: SimConfig) -> np.ndarray:
     return cfg.lr * np.ones(cfg.T)
 
 
+def estimate_diagonals(
+    T_exploration: int,
+    Q: np.ndarray,
+    B: np.ndarray,
+) -> np.ndarray:
+    """
+    Estimate the diagonal terms of ``Q`` from exploration trajectories.
+
+    Each player samples actions i.i.d. from ``N(0, 1)`` for ``T_exploration`` turns.
+    For quadratic costs with zero-mean unit-variance actions,
+
+    ``E[cost_n] = 0.5 * q_nn``
+
+    so the diagonal estimate is obtained by doubling the empirical mean cost.
+
+    Parameters
+    ----------
+    T_exploration : int
+        Number of exploration samples.
+    Q : np.ndarray
+        Quadratic matrix with shape ``(L, N, N)``.
+    B : np.ndarray
+        Linear term with shape ``(L, N, 1)``.
+
+    Returns
+    -------
+    np.ndarray
+        Estimated diagonals with shape ``(L, N, 1)``.
+    """
+    exploration_x = np.random.normal(loc=0.0, scale=1.0, size=(T_exploration, *B.shape))
+    qx = np.matmul(Q[None, :, :, :], exploration_x)
+    diagonals = np.expand_dims(np.diagonal(Q, axis1=1, axis2=2), axis=(0, -1))
+    costs = 0.5 * (2 * exploration_x * qx - diagonals * (exploration_x ** 2)) + B[None, :, :, :] * exploration_x
+    return 2.0 * np.mean(costs, axis=0)
+
+
 def IterationLoop(
     cfg: SimConfig,
     Q: np.ndarray,
