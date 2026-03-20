@@ -22,11 +22,13 @@ class SimConfig:
     T: int = 1000
     alpha: float = 1.0
     beta: float = 0.2
+    delta: float = 0.001
     T_exploration: int = 2000
     qnn_low: float = 1.2
     qnn_high: float = 2.2
     action_project_low: float = -20.0
     action_project_high: float = 20.0
+    non_symmetric: bool = False
     isPlot: bool = False
     debug: bool = False
 
@@ -70,11 +72,13 @@ def parse_args() -> SimConfig:
     p.add_argument("--T", type=int, default=1000)
     p.add_argument("--alpha", type=float, default=1.0)
     p.add_argument("--beta", type=float, default=0.2)
+    p.add_argument("--delta", type=float, default=0.001)
     p.add_argument("--T_exploration", type=int, default=2000)
     p.add_argument("--qnn_low", type=float, default=1.2)
     p.add_argument("--qnn_high", type=float, default=2.2)
     p.add_argument("--plot", action="store_true", help="Enable plotting")
     p.add_argument("--debug", action="store_true", help="Plot only Nash and Optimal curves")
+    p.add_argument("--non_symmetric", action="store_true", help="Add uniform off-diagonal noise to break Q symmetry")
     p.add_argument("--action_project_low", type=float, default=-20.0)
     p.add_argument("--action_project_high", type=float, default=20.0)
     a = p.parse_args()
@@ -86,11 +90,13 @@ def parse_args() -> SimConfig:
         T=a.T,
         alpha=a.alpha,
         beta=a.beta,
+        delta=a.delta,
         T_exploration=a.T_exploration,
         qnn_low=a.qnn_low,
         qnn_high=a.qnn_high,
         action_project_low=a.action_project_low,
         action_project_high=a.action_project_high,
+        non_symmetric=a.non_symmetric,
         isPlot=a.plot,
         debug=a.debug,
     )

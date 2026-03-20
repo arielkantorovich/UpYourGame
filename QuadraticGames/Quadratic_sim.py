@@ -16,6 +16,8 @@ def main(cfg: SimConfig) -> None:
         beta=cfg.beta,
         low=cfg.qnn_low,
         high=cfg.qnn_high,
+        delta=cfg.delta,
+        non_symmetric=cfg.non_symmetric,
     )
 
     x_init = np.random.uniform(0.1, 1.1, size=(cfg.L, cfg.N, 1))
@@ -62,6 +64,7 @@ def main(cfg: SimConfig) -> None:
             optimal_mean_cost=optimal_record.mean_cost,
             dcpa_mean_cost=prior_record.mean_cost,
             num_players=cfg.N,
+            non_symmetric=cfg.non_symmetric,
             debug=cfg.debug,
         )
 
@@ -69,6 +72,9 @@ def main(cfg: SimConfig) -> None:
     print(f"Final mean cost Optimal: {optimal_record.mean_cost[-1]:.6f}")
     print(f"Final mean cost DCPA: {prior_record.mean_cost[-1]:.6f}")
     print(f"Exploration turns used for diagonal estimation: {cfg.T_exploration}")
+    if cfg.non_symmetric:
+        asymmetry = np.mean(np.abs(Q - np.transpose(Q, axes=(0, 2, 1))))
+        print(f"Mean |Q - Q^T| across games: {asymmetry:.6f}")
     print("Quadratic simulation finished.")
 
 

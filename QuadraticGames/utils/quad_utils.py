@@ -16,6 +16,8 @@ def generate_Q_B(
     beta: float = 1,
     low: float = 1,
     high: float = 2,
+    delta: float = 0.001,
+    non_symmetric: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Generate the quadratic-game matrices ``Q`` and vectors ``B`` for ``L`` samples.
@@ -53,6 +55,11 @@ def generate_Q_B(
     high : float, optional
         Upper bound for the random diagonal values of ``Q``.
 
+    If ``non_symmetric`` is enabled, uniform off-diagonal noise sampled from
+    ``[-delta, delta]`` is added independently to each entry of ``Q``. The
+    diagonal is kept unchanged, so only the cross-player interactions lose
+    symmetry.
+
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
@@ -73,6 +80,12 @@ def generate_Q_B(
     random_diagonals = np.random.uniform(low, high, size=(L, N))  # Generate random values for each diagonal
     for i in range(L):  # Update each trial's diagonal individually
         np.fill_diagonal(Q[i], random_diagonals[i])
+
+    if non_symmetric:
+        asym_noise = np.random.uniform(low=-delta, high=delta, size=(L, N, N))
+        diag_mask = np.eye(N, dtype=bool)[None, :, :]
+        asym_noise = np.where(diag_mask, 0.0, asym_noise)
+        Q = Q + asym_noise
 
     # Step 5: Generate B
     B = np.random.uniform(low=-beta, high=beta, size=(L, N, 1))
@@ -151,6 +164,7 @@ def IterationLoop(
     lr = _build_lr_schedule(cfg)
     diagonals = np.diagonal(Q, axis1=1, axis2=2)
     diagonals = np.expand_dims(diagonals, axis=-1)
+    q_transpose = np.transpose(Q, axes=(0, 2, 1))
     x_curr = x.copy()
 
     for t in range(cfg.T):
@@ -161,7 +175,7 @@ def IterationLoop(
         if grad_mode == GradMode.NAIVE_NASH:
             residual_gradient = np.zeros_like(local_gradient)
         elif grad_mode == GradMode.OPTIMAL:
-            residual_gradient = quadratic_term - diagonals * x_curr
+            residual_gradient = np.matmul(q_transpose, x_curr) - diagonals * x_curr
         elif grad_mode == GradMode.PRIOR_APPROXIMATION:
             if diagonals_est is None:
                 raise ValueError("diagonals_est must be provided for PRIOR_APPROXIMATION mode.")
