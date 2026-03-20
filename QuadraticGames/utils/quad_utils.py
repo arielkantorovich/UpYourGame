@@ -92,6 +92,24 @@ def generate_Q_B(
     return Q, B
 
 
+def compute_asymmetry_percentage(Q: np.ndarray) -> float:
+    """
+    Measure how far ``Q`` is from symmetry as a percentage.
+
+    The metric is the relative Frobenius norm of the antisymmetric part:
+
+    ``Delta = ||Q - Q^T||_F / (2 ||Q||_F) * 100``
+
+    averaged across all ``L`` generated games. A symmetric game gives
+    ``Delta = 0``.
+    """
+    q_transpose = np.transpose(Q, axes=(0, 2, 1))
+    numerator = np.linalg.norm(Q - q_transpose, axis=(1, 2))
+    denominator = 2.0 * np.linalg.norm(Q, axis=(1, 2))
+    delta_per_game = 100.0 * numerator / np.maximum(denominator, 1e-12)
+    return float(np.mean(delta_per_game))
+
+
 def _build_lr_schedule(cfg: SimConfig) -> np.ndarray:
     return cfg.lr * np.ones(cfg.T)
 

@@ -7,6 +7,7 @@ def plot_quadratic_mean_cost(
     optimal_mean_cost: np.ndarray,
     dcpa_mean_cost: np.ndarray,
     num_players: int,
+    asymmetry_pct: float = 0.0,
     non_symmetric: bool = False,
     debug: bool = False,
 ) -> None:
@@ -23,6 +24,8 @@ def plot_quadratic_mean_cost(
         Mean cost curve of the DCPA dynamics.
     num_players : int
         Number of players in the simulation.
+    asymmetry_pct : float, optional
+        Relative percentage distance from symmetry, shown as ``Delta`` in the title.
     non_symmetric : bool, optional
         If True, label the plot as non-symmetric.
     debug : bool, optional
@@ -37,7 +40,9 @@ def plot_quadratic_mean_cost(
         plt.plot(t, dcpa_mean_cost, "b", label="DCPA")
     plt.xlabel("Iteration")
     plt.ylabel("Cost")
-    plt.title(f"Quadratic Game (N={num_players}, {symmetry_label})")
+    plt.title(
+        rf"Quadratic Game (N={num_players}, {symmetry_label}, $\Delta={asymmetry_pct:.2f}\%$)"
+    )
     plt.legend()
     plt.grid(True, alpha=0.2)
     plt.show()
