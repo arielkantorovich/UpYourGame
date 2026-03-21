@@ -30,6 +30,7 @@ class SimConfig:
     action_project_high: float = 20.0
     non_symmetric: bool = False
     isPlot: bool = False
+    plot_std: bool = False
     debug: bool = False
 
 
@@ -77,6 +78,7 @@ def parse_args() -> SimConfig:
     p.add_argument("--qnn_low", type=float, default=1.2)
     p.add_argument("--qnn_high", type=float, default=2.2)
     p.add_argument("--plot", action="store_true", help="Enable plotting")
+    p.add_argument("--plot_std", action="store_true", help="Add shaded standard deviation bands to the plot")
     p.add_argument("--debug", action="store_true", help="Plot only Nash and Optimal curves")
     p.add_argument("--non_symmetric", action="store_true", help="Add uniform off-diagonal noise to break Q symmetry")
     p.add_argument("--action_project_low", type=float, default=-20.0)
@@ -98,5 +100,6 @@ def parse_args() -> SimConfig:
         action_project_high=a.action_project_high,
         non_symmetric=a.non_symmetric,
         isPlot=a.plot,
+        plot_std=a.plot_std,
         debug=a.debug,
     )

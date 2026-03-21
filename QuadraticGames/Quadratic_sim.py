@@ -64,9 +64,13 @@ def main(cfg: SimConfig) -> None:
             ne_mean_cost=ne_record.mean_cost,
             optimal_mean_cost=optimal_record.mean_cost,
             dcpa_mean_cost=prior_record.mean_cost,
+            optimal_std_cost=np.std(optimal_record.sum_cost, axis=0),
+            ne_std_cost=np.std(ne_record.sum_cost, axis=0),
+            dcpa_std_cost=np.std(prior_record.sum_cost, axis=0),
             num_players=cfg.N,
             asymmetry_pct=asymmetry_pct,
             non_symmetric=cfg.non_symmetric,
+            plot_std=cfg.plot_std,
             debug=cfg.debug,
         )
 
