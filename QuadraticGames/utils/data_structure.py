@@ -32,6 +32,8 @@ class SimConfig:
     isPlot: bool = False
     plot_std: bool = False
     debug: bool = False
+    y_min: float = 0.0
+    y_max: float = 0.0
 
 
 class GradMode(IntEnum):
@@ -81,6 +83,8 @@ def parse_args() -> SimConfig:
     p.add_argument("--plot_std", action="store_true", help="Add shaded standard deviation bands to the plot")
     p.add_argument("--debug", action="store_true", help="Plot only Nash and Optimal curves")
     p.add_argument("--non_symmetric", action="store_true", help="Add uniform off-diagonal noise to break Q symmetry")
+    p.add_argument("--y_min", type=float, default=0.0, help="Minimum y-axis value. If 0, do not limit the lower bound.")
+    p.add_argument("--y_max", type=float, default=0.0, help="Maximum y-axis value. If 0, do not limit the upper bound.")
     p.add_argument("--action_project_low", type=float, default=-20.0)
     p.add_argument("--action_project_high", type=float, default=20.0)
     a = p.parse_args()
@@ -102,4 +106,6 @@ def parse_args() -> SimConfig:
         isPlot=a.plot,
         plot_std=a.plot_std,
         debug=a.debug,
+        y_min=a.y_min,
+        y_max=a.y_max,
     )

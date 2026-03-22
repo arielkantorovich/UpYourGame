@@ -14,6 +14,8 @@ def plot_quadratic_mean_cost(
     non_symmetric: bool = False,
     plot_std: bool = False,
     debug: bool = False,
+    y_min: float = 0.0,
+    y_max: float = 0.0,
 ) -> None:
     """
     Plot the mean cost curves of the quadratic simulation.
@@ -42,6 +44,10 @@ def plot_quadratic_mean_cost(
         If True, draw shaded standard deviation bands around the mean curves.
     debug : bool, optional
         If True, plot only Nash and Optimal.
+    y_min : float, optional
+        Minimum y-axis value. If 0, the lower bound is left unchanged.
+    y_max : float, optional
+        Maximum y-axis value. If 0, the upper bound is left unchanged.
     """
     t = np.arange(ne_mean_cost.shape[0])
     symmetry_label = "Non-Symmetric" if non_symmetric else "Symmetric"
@@ -81,6 +87,11 @@ def plot_quadratic_mean_cost(
     plt.ylabel("Cost")
     plt.title(
         rf"Quadratic Game (N={num_players}, {symmetry_label}, $\Delta={asymmetry_pct:.2f}\%$)"
+    )
+    current_ymin, current_ymax = plt.ylim()
+    plt.ylim(
+        bottom=y_min if y_min != 0.0 else current_ymin,
+        top=y_max if y_max != 0.0 else current_ymax,
     )
     plt.legend()
     plt.grid(True, alpha=0.2)

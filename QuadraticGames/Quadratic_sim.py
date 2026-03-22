@@ -72,6 +72,8 @@ def main(cfg: SimConfig) -> None:
             non_symmetric=cfg.non_symmetric,
             plot_std=cfg.plot_std,
             debug=cfg.debug,
+            y_min=cfg.y_min,
+            y_max=cfg.y_max,
         )
 
     print(f"Final mean cost NE: {ne_record.mean_cost[-1]:.6f}")
