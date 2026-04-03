@@ -465,7 +465,7 @@ if __name__ == '__main__':
     plt.plot(t, total_NE_reward, color='b', label="$Nash$"), plt.xlabel("# Iteration"), plt.legend()
     # plt.fill_between(t, total_NE_reward - total_NE_std, total_NE_reward + total_NE_std, color='b', alpha=0.2)
 
-    plt.plot(t, total_ml_reward, color='lightcoral', linestyle='-', label="$Ours$"), plt.xlabel("# Iteration"), plt.legend()
+    plt.plot(t, total_ml_reward, color='gold', linestyle='-', label="DCPA"), plt.xlabel("# Iteration"), plt.legend()
     plt.plot(t, total_global_reward, '--k', label="$Global$"), plt.xlabel("# Iteration"), plt.legend()
     plt.ylim(np.max(total_NE_reward)-200, np.max(total_global_reward)+100)
 
