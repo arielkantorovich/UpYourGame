@@ -1,0 +1,74 @@
+"""
+Created on : ------
+
+@author: Ariel_Kantorovich
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def plot_NE_opt_GAP(T: int, isDebug: bool, obj_NE: np.ndarray, obj_opt: np.ndarray,
+                    obj_DCPA_AlphaBeta: np.ndarray, obj_DCPA_Alpha: np.ndarray, title_draw: dict) -> None:
+    """
+    The following function plot simulation results and gap between NE and OPT
+    :param T:
+    :param isDebug: plot only nash and optimal case debug mode
+    :param obj_NE: (T, ) nash objective record
+    :param obj_opt: (T, ) optimal objective record
+    :param obj_DCPA_AlphaBeta: (T, ) dcpa objective record
+    :param obj_DCPA_Alpha: (T, ) dcpa objective record
+    :param title_draw: plot title parameters such as N R link etc.
+    :return: None
+    """
+    final_iter = T - 1
+    final_opt = obj_opt[final_iter]
+    final_ne = obj_NE[final_iter]
+
+    eps = 1e-12
+    diff_percentage = 100.0 * (final_opt - final_ne) / (final_opt + eps)
+
+    t = np.arange(T)
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(t, obj_opt, label="OPT")
+    plt.plot(t, obj_NE, label="NE")
+    if not isDebug:
+        plt.plot(t, obj_DCPA_AlphaBeta, label=r"DCPA-($\alpha_n,\beta_n$)")
+        plt.plot(t, obj_DCPA_Alpha, label=r"DCPA-($\alpha_n$)")
+    # Vertical line BETWEEN NE[T-1] and OPT[T-1]
+    plt.vlines(
+        x=final_iter,
+        ymin=min(final_opt, final_ne),
+        ymax=max(final_opt, final_ne),
+        colors="black",
+        linestyles="dashed",
+        linewidth=2
+    )
+
+    # Put text next to the vertical line
+    y_mid = (final_opt + final_ne) * 0.5
+    x_offset = 100
+    plt.text(
+        final_iter - x_offset,
+        y_mid,
+        f"{diff_percentage:.2f}%",
+        ha="left",
+        va="center",
+        color="black"
+    )
+
+    plt.xlabel("# Iteration")
+    plt.ylabel("# Objective")
+    plt.title(f"N = {title_draw['N']}, K = {title_draw['K']}, Rlink = {title_draw['Rlink']}")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_GAP_N(N_list: list, diff_prec: np.ndarray) -> None:
+    plt.figure(figsize=(8, 5))
+    plt.plot(N_list, diff_prec, linestyle='--', marker='o')
+    plt.xlabel("# Number of agents")
+    plt.ylabel("# Gap (%)")
+    plt.title("Nash Gap vs Optimal")
+    plt.show()
