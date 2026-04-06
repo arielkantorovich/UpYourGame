@@ -76,9 +76,9 @@ def main(cfg: SimConfig) -> None:
             y_max=cfg.y_max,
         )
 
-    print(f"Final mean cost NE: {ne_record.mean_cost[-1]:.6f}")
-    print(f"Final mean cost Optimal: {optimal_record.mean_cost[-1]:.6f}")
-    print(f"Final mean cost DCPA: {prior_record.mean_cost[-1]:.6f}")
+    print(f"Final mean payoff NE: {ne_record.mean_cost[-1]:.6f}")
+    print(f"Final mean payoff Optimal: {optimal_record.mean_cost[-1]:.6f}")
+    print(f"Final mean payoff DCPA: {prior_record.mean_cost[-1]:.6f}")
     print(f"Exploration turns used for diagonal estimation: {cfg.T_exploration}")
     print(f"Delta from symmetry: {asymmetry_pct:.2f}%")
     print("Quadratic simulation finished.")

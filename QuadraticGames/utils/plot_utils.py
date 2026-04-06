@@ -84,7 +84,7 @@ def plot_quadratic_mean_cost(
                 linewidth=0,
             )
     plt.xlabel("Iteration")
-    plt.ylabel("Cost")
+    plt.ylabel("Payoff")
     plt.title(
         rf"Quadratic Game (N={num_players}, {symmetry_label}, $\Delta={asymmetry_pct:.2f}\%$)"
     )

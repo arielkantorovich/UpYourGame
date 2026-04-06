@@ -89,6 +89,8 @@ def generate_Q_B(
 
     # Step 5: Generate B
     B = np.random.uniform(low=-beta, high=beta, size=(L, N, 1))
+    # Replace Q to concave problem
+    Q = -1.0 * Q
     return Q, B
 
 
@@ -205,7 +207,7 @@ def IterationLoop(
         sim_record.cost_record[:, t, :] = cost.squeeze(-1)
         sim_record.grad_record[:, t, :] = total_grad.squeeze(-1)
 
-        x_curr = x_curr - lr[t] * total_grad
+        x_curr = x_curr + lr[t] * total_grad
         x_curr = np.clip(
             x_curr,
             a_min=cfg.action_project_low,
