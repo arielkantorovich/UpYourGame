@@ -116,13 +116,35 @@ def _build_lr_schedule(cfg: SimConfig) -> np.ndarray:
     return cfg.lr * np.ones(cfg.T)
 
 
-def estimate_diagonals(
+def sample_quadratic_exploration(
     T_exploration: int,
     Q: np.ndarray,
     B: np.ndarray,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    Estimate the diagonal terms of ``Q`` from exploration trajectories.
+    Sample Gaussian exploration actions and the corresponding realized costs.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        ``(exploration_x, costs)`` with shapes ``(T, L, N, 1)``.
+    """
+    exploration_x = np.random.normal(loc=0.0, scale=1.0, size=(T_exploration, *B.shape))
+    qx = np.matmul(Q[None, :, :, :], exploration_x)
+    diagonals = np.expand_dims(np.diagonal(Q, axis1=1, axis2=2), axis=(0, -1))
+    costs = 0.5 * (2 * exploration_x * qx - diagonals * (exploration_x ** 2)) + B[None, :, :, :] * exploration_x
+    return exploration_x, costs
+
+
+def estimate_game_parameters(
+    T_exploration: int,
+    Q: np.ndarray,
+    B: np.ndarray,
+    return_samples: bool = False,
+) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Estimate the diagonal terms of ``Q`` and the linear term ``B`` from
+    exploration trajectories.
 
     Each player samples actions i.i.d. from ``N(0, 1)`` for ``T_exploration`` turns.
     For quadratic costs with zero-mean unit-variance actions,
@@ -130,6 +152,14 @@ def estimate_diagonals(
     ``E[cost_n] = 0.5 * q_nn``
 
     so the diagonal estimate is obtained by doubling the empirical mean cost.
+
+    In addition,
+
+    ``E[cost_n * x_n] = b_n``
+
+    because the mixed quadratic terms have zero expectation under independent
+    zero-mean Gaussian exploration. Therefore the linear coefficient estimate is
+    the empirical mean of ``cost_n * x_n``.
 
     Parameters
     ----------
@@ -142,14 +172,22 @@ def estimate_diagonals(
 
     Returns
     -------
-    np.ndarray
-        Estimated diagonals with shape ``(L, N, 1)``.
+    tuple[np.ndarray, np.ndarray]
+        ``(q_nn_est, B_est)`` with shapes ``(L, N, 1)`` and ``(L, N, 1)``.
+
+    If ``return_samples=True``, also returns ``(exploration_x, costs)`` with
+    shapes ``(T_exploration, L, N, 1)``.
     """
-    exploration_x = np.random.normal(loc=0.0, scale=1.0, size=(T_exploration, *B.shape))
-    qx = np.matmul(Q[None, :, :, :], exploration_x)
-    diagonals = np.expand_dims(np.diagonal(Q, axis1=1, axis2=2), axis=(0, -1))
-    costs = 0.5 * (2 * exploration_x * qx - diagonals * (exploration_x ** 2)) + B[None, :, :, :] * exploration_x
-    return 2.0 * np.mean(costs, axis=0)
+    exploration_x, costs = sample_quadratic_exploration(
+        T_exploration=T_exploration,
+        Q=Q,
+        B=B,
+    )
+    q_nn_est = 2.0 * np.mean(costs, axis=0)
+    B_est = np.mean(costs * exploration_x, axis=0)
+    if return_samples:
+        return q_nn_est, B_est, exploration_x, costs
+    return q_nn_est, B_est
 
 
 def IterationLoop(

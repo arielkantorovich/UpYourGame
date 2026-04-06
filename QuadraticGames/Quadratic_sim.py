@@ -25,7 +25,7 @@ def main(cfg: SimConfig) -> None:
     ne_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
     optimal_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
     prior_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
-    diagonals_est = estimate_diagonals(
+    diagonals_est, B_est = estimate_game_parameters(
         T_exploration=cfg.T_exploration,
         Q=Q,
         B=B,
@@ -34,7 +34,7 @@ def main(cfg: SimConfig) -> None:
     IterationLoop(
         cfg=cfg,
         Q=Q,
-        B=B,
+        B=B_est,
         x=x_init,
         sim_record=ne_record,
         grad_mode=GradMode.NAIVE_NASH,
@@ -52,7 +52,7 @@ def main(cfg: SimConfig) -> None:
     IterationLoop(
         cfg=cfg,
         Q=Q,
-        B=B,
+        B=B_est,
         x=x_init,
         sim_record=prior_record,
         grad_mode=GradMode.PRIOR_APPROXIMATION,
@@ -79,7 +79,7 @@ def main(cfg: SimConfig) -> None:
     print(f"Final mean payoff NE: {ne_record.mean_cost[-1]:.6f}")
     print(f"Final mean payoff Optimal: {optimal_record.mean_cost[-1]:.6f}")
     print(f"Final mean payoff DCPA: {prior_record.mean_cost[-1]:.6f}")
-    print(f"Exploration turns used for diagonal estimation: {cfg.T_exploration}")
+    print(f"Exploration turns used for parameter estimation: {cfg.T_exploration}")
     print(f"Delta from symmetry: {asymmetry_pct:.2f}%")
     print("Quadratic simulation finished.")
 
