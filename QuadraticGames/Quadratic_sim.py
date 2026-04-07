@@ -1,7 +1,13 @@
 """
-Created on : ------
+Simulation entrypoint for the quadratic-game experiments.
 
-@author: Ariel_Kantorovich
+This script generates quadratic games, estimates parameters from exploration,
+runs the Nash, optimal, and prior-approximation updates, and optionally saves
+the comparison plots used in the project figures.
+
+Usage example
+-------------
+python QuadraticGames/Quadratic_sim.py
 """
 
 from utils.quad_utils import *
@@ -9,6 +15,7 @@ from utils.data_structure import *
 from utils.plot_utils import plot_quadratic_mean_cost
 
 def main(cfg: SimConfig) -> None:
+    """Run the full quadratic-game simulation for one parsed configuration."""
     Q, B = generate_Q_B(
         N=cfg.N,
         L=cfg.L,

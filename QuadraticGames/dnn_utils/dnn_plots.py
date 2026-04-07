@@ -1,14 +1,14 @@
 """
-Created on : ------
+Plotting helpers for quadratic offline training outputs.
 
-@author: Ariel_Kantorovich
+This module saves the learning-curve figure and the validation scatter plot
+produced after the offline training run.
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
-import torch
-from typing import Callable, Optional, Tuple
+from typing import Optional
 
 def plot_loss(
     output_dir: str,
@@ -48,46 +48,26 @@ def plot_loss(
 
 
 
-@torch.no_grad()
 def save_validation_scatter(
-    model: torch.nn.Module,
-    val_loader,
-    device: torch.device,
-    predicted_prior_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    predictions: np.ndarray,
+    targets: np.ndarray,
     output_dir: str,
     filename: str = "val_scatter.png",
     jump: int = 600,
     max_points: Optional[int] = None,
 ) -> Path:
     """
-    Runs model on val_loader, collects predictions/targets, and saves a scatter plot.
+    Save a scatter plot of flattened predictions against targets.
 
     X-axis: targets
     Y-axis: predictions
     Also draws y=x reference line.
 
-    :param predicted_prior_fn: function(outputs, inputs) -> predicted_prior
     :param jump: take every jump-th point (simple downsampling)
     :param max_points: optional cap on number of points after downsampling
     """
-    model.eval()
-
-    preds = []
-    targs = []
-
-    for inputs_pre, inputs, targets in val_loader:
-        inputs_pre = inputs_pre.to(device)
-        inputs = inputs.to(device)
-        targets = targets.to(device)
-
-        outputs = model(inputs_pre)
-        predicted_prior = predicted_prior_fn(outputs, inputs)
-
-        preds.append(predicted_prior.detach().cpu().numpy())
-        targs.append(targets.detach().cpu().numpy())
-
-    all_preds = np.concatenate(preds, axis=0).ravel()
-    all_targets = np.concatenate(targs, axis=0).ravel()
+    all_preds = predictions.ravel()
+    all_targets = targets.ravel()
 
     # Downsample for readability/speed
     idx = np.arange(0, len(all_preds), max(1, jump))

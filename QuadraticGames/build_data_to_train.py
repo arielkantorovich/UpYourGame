@@ -1,29 +1,25 @@
 """
-Created on : ------
+Dataset builder for quadratic-game offline training.
 
-@author: Ariel_Kantorovich
+This script generates quadratic games, runs the exploration phase used for
+parameter estimation, and saves per-player supervised samples as compressed
+`.npz` shards for the offline neural-network trainer.
 
-Build supervised training data for the quadratic game.
-
-This script generates game instances, runs Gaussian exploration for each player,
-and saves per-player samples in ``.npz`` shards. Each sample contains a fully
-connected-network input vector built from the exploration trajectory:
-
+Each input sample is built as:
     [x_n(0), cost_n(0), x_n(1), cost_n(1), ..., x_n(T-1), cost_n(T-1)]
 
-The saved arrays are:
+Saved arrays:
+- `X`: exploration features for one player
+- `y`: ground-truth labels `[q_nn_true, b_n_true]`
 
-- ``X``: exploration trajectory features for one player
-- ``y``: supervised labels, ``[q_nn_true, b_n_true]``
-
-The output directory structure is:
-
+Output layout:
     Training_Data/N{N}/train
     Training_Data/N{N}/valid
 
-Command-line example
---------------------
-python3 QuadraticGames/build_data_to_train.py --N 5 --L 4000 --valid_L 800 --T_exploration 200
+Usage examples
+--------------
+python QuadraticGames/build_data_to_train.py --N 5 --L 4000 --valid_L 800 --T_exploration 200
+python QuadraticGames/build_data_to_train.py --base_dir QuadraticGames/Training_Data --N 20 --L 5000 --valid_L 1000 --L_batch 500
 """
 
 import argparse
