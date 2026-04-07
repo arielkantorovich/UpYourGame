@@ -4,7 +4,12 @@ Created on : ------
 @author: Ariel_Kantorovich
 """
 
+from pathlib import Path
+
 import numpy as np
+import torch
+from dnn_utils.nn_utils import quadratic_nn_predict
+from dnn_utils.train_data_struct import load_configs_from_yaml
 from utils.data_structure import GradMode, SimConfig, SimRecord
 
 
@@ -188,6 +193,55 @@ def estimate_game_parameters(
     if return_samples:
         return q_nn_est, B_est, exploration_x, costs
     return q_nn_est, B_est
+
+
+def estimate_game_parameters_with_nn(
+    weights_dir: str | Path,
+    Q: np.ndarray,
+    B: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """
+    Estimate quadratic diagonals and linear terms using a trained neural network.
+
+    The function loads `train_config.yaml` from the results folder to recover the
+    exploration length used during training, regenerates the exploration features,
+    and predicts `[q_nn, b_n]` for each player with the saved `model.pt`.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, int]
+        `(q_nn_est, B_est, T_exploration)` where the estimates have shape
+        `(L, N, 1)`.
+    """
+    weights_dir = Path(weights_dir)
+    cfg_path = weights_dir / "train_config.yaml"
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"Training config not found: {cfg_path}")
+
+    train_cfg, _ = load_configs_from_yaml(str(cfg_path))
+    _, _, exploration_x, costs = estimate_game_parameters(
+        T_exploration=train_cfg.T_exploration,
+        Q=Q,
+        B=B,
+        return_samples=True,
+    )
+
+    T, L, N, _ = exploration_x.shape
+    feature_pairs = np.concatenate([exploration_x, costs], axis=-1)
+    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 2 * T).astype(np.float32)
+
+    predictions = quadratic_nn_predict(
+        input_path=str(weights_dir),
+        inputs=torch.as_tensor(X, dtype=torch.float32),
+        cfg=train_cfg,
+    )
+    predictions = predictions.reshape(L, N, train_cfg.output_dim)
+    if train_cfg.output_dim < 2:
+        raise ValueError("Quadratic NN output_dim must be at least 2 to predict q_nn and B.")
+
+    q_nn_est = predictions[:, :, 0:1]
+    B_est = predictions[:, :, 1:2]
+    return q_nn_est, B_est, train_cfg.T_exploration
 
 
 def IterationLoop(

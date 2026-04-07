@@ -7,6 +7,7 @@ Created on : ------
 from dataclasses import dataclass
 import argparse
 from enum import IntEnum
+from typing import Optional
 import numpy as np
 
 
@@ -23,7 +24,7 @@ class SimConfig:
     alpha: float = 1.0
     beta: float = 0.2
     delta: float = 0.001
-    T_exploration: int = 2000
+    T_exploration: int = 1500
     qnn_low: float = 1.2
     qnn_high: float = 2.2
     action_project_low: float = -20.0
@@ -34,6 +35,7 @@ class SimConfig:
     debug: bool = False
     y_min: float = 0.0
     y_max: float = 0.0
+    weights: Optional[str] = None
 
 
 class GradMode(IntEnum):
@@ -87,6 +89,12 @@ def parse_args() -> SimConfig:
     p.add_argument("--y_max", type=float, default=0.0, help="Maximum y-axis value. If 0, do not limit the upper bound.")
     p.add_argument("--action_project_low", type=float, default=-20.0)
     p.add_argument("--action_project_high", type=float, default=20.0)
+    p.add_argument(
+        "--weights",
+        type=str,
+        default=None,
+        help="Path to a trained results folder containing model.pt and train_config.yaml",
+    )
     a = p.parse_args()
 
     return SimConfig(
@@ -108,4 +116,5 @@ def parse_args() -> SimConfig:
         debug=a.debug,
         y_min=a.y_min,
         y_max=a.y_max,
+        weights=a.weights,
     )

@@ -3,11 +3,14 @@ Simulation entrypoint for the quadratic-game experiments.
 
 This script generates quadratic games, estimates parameters from exploration,
 runs the Nash, optimal, and prior-approximation updates, and optionally saves
-the comparison plots used in the project figures.
+the comparison plots used in the project figures. If `--weights` is provided,
+the prior parameters are estimated with the trained offline neural network
+instead of the expectation-based estimator.
 
 Usage example
 -------------
 python QuadraticGames/Quadratic_sim.py
+python QuadraticGames/Quadratic_sim.py --weights QuadraticGames/Training_Data/N20/results
 """
 
 from utils.quad_utils import *
@@ -32,11 +35,21 @@ def main(cfg: SimConfig) -> None:
     ne_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
     optimal_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
     prior_record = SimRecord.zeros(cfg.L, cfg.T, cfg.N)
-    diagonals_est, B_est = estimate_game_parameters(
-        T_exploration=cfg.T_exploration,
-        Q=Q,
-        B=B,
-    )
+    if cfg.weights:
+        diagonals_est, B_est, exploration_turns = estimate_game_parameters_with_nn(
+            weights_dir=cfg.weights,
+            Q=Q,
+            B=B,
+        )
+        print(f"Using NN-based parameter estimation from: {cfg.weights}")
+    else:
+        diagonals_est, B_est = estimate_game_parameters(
+            T_exploration=cfg.T_exploration,
+            Q=Q,
+            B=B,
+        )
+        exploration_turns = cfg.T_exploration
+        print("Using expectation-based parameter estimation.")
 
     IterationLoop(
         cfg=cfg,
@@ -86,7 +99,7 @@ def main(cfg: SimConfig) -> None:
     print(f"Final mean payoff NE: {ne_record.mean_cost[-1]:.6f}")
     print(f"Final mean payoff Optimal: {optimal_record.mean_cost[-1]:.6f}")
     print(f"Final mean payoff DCPA: {prior_record.mean_cost[-1]:.6f}")
-    print(f"Exploration turns used for parameter estimation: {cfg.T_exploration}")
+    print(f"Exploration turns used for parameter estimation: {exploration_turns}")
     print(f"Delta from symmetry: {asymmetry_pct:.2f}%")
     print("Quadratic simulation finished.")
 
