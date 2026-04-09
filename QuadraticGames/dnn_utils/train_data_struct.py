@@ -31,6 +31,7 @@ class TrainConfig:
     batch_size: int = 128
     epochs: int = 100
     T_exploration: int = 200
+    T_loss: int = 200
     output_dim: int = 2
     grad_clip: Optional[float] = None
     scheduler: SchedulerType = SchedulerType.NONE
@@ -106,3 +107,31 @@ class XYDataset(Dataset):
     def __getitem__(self, idx):
         """Return one `(features, target)` sample."""
         return self.X[idx], self.y[idx]
+
+
+class XZYDataset(Dataset):
+    def __init__(self, X, Z, y, dtype=torch.float32):
+        """
+        Wrap X, Z, y numpy arrays as a PyTorch dataset for DCPA approach.
+        
+        Parameters
+        ----------
+        X : np.ndarray
+            Exploration features
+        Z : np.ndarray
+            Loss path trajectory data
+        y : np.ndarray
+            Optimal gradient labels
+        """
+        assert len(X) == len(Z) == len(y)
+        self.X = torch.as_tensor(X, dtype=dtype)
+        self.Z = torch.as_tensor(Z, dtype=dtype)
+        self.y = torch.as_tensor(y, dtype=dtype)
+
+    def __len__(self):
+        """Return the number of samples in the dataset."""
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        """Return one `(X_features, Z_path, target)` sample."""
+        return self.X[idx], self.Z[idx], self.y[idx]

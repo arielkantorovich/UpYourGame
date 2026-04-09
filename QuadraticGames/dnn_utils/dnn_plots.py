@@ -69,8 +69,11 @@ def save_validation_scatter(
     all_preds = predictions.ravel()
     all_targets = targets.ravel()
 
-    # Downsample for readability/speed
-    idx = np.arange(0, len(all_preds), max(1, jump))
+    # Downsample for readability/speed – use the shorter array length
+    n = min(len(all_preds), len(all_targets))
+    all_preds = all_preds[:n]
+    all_targets = all_targets[:n]
+    idx = np.arange(0, n, max(1, jump))
     if max_points is not None and len(idx) > max_points:
         idx = idx[:max_points]
 

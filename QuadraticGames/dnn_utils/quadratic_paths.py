@@ -13,33 +13,42 @@ import numpy as np
 import torch
 
 
-def _load_npz_shards(dir_path: Path, prefix: str) -> Tuple[np.ndarray, np.ndarray]:
-    """Load one split from either a single `.npz` file or multiple numbered shards."""
+def _load_npz_shards(dir_path: Path, prefix: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load one split from either a single `.npz` file or multiple numbered shards (DCPA format)."""
     single = dir_path / f"{prefix}.npz"
     if single.exists():
         with np.load(single) as data:
-            return data["X"], data["y"]
+            return data["X"], data["Z"], data["y"]
 
     shards = sorted(dir_path.glob(f"{prefix}_*.npz"))
     if not shards:
         raise FileNotFoundError(f"No {prefix}.npz or {prefix}_*.npz found in: {dir_path}")
 
     Xs = []
+    Zs = []
     Ys = []
     for shard in shards:
         with np.load(shard) as data:
             Xs.append(data["X"])
+            Zs.append(data["Z"])
             Ys.append(data["y"])
 
-    return np.concatenate(Xs, axis=0), np.concatenate(Ys, axis=0)
+    return np.concatenate(Xs, axis=0), np.concatenate(Zs, axis=0), np.concatenate(Ys, axis=0)
 
 
 def load_dataset_npz(
     base_dir: str | Path,
     *,
     prefix: str = "data",
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Load train/validation arrays from the quadratic dataset directory layout."""
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Load train/validation arrays from the quadratic dataset directory layout (DCPA format).
+    
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        (X_train, Z_train, y_train, X_valid, Z_valid, y_valid)
+    """
     base_dir = Path(base_dir)
     train_dir = base_dir / "train"
     valid_dir = base_dir / "valid"
@@ -49,9 +58,9 @@ def load_dataset_npz(
     if not valid_dir.exists():
         raise FileNotFoundError(f"Valid dir not found: {valid_dir}")
 
-    X_train, y_train = _load_npz_shards(train_dir, prefix)
-    X_valid, y_valid = _load_npz_shards(valid_dir, prefix)
-    return X_train, y_train, X_valid, y_valid
+    X_train, Z_train, y_train = _load_npz_shards(train_dir, prefix)
+    X_valid, Z_valid, y_valid = _load_npz_shards(valid_dir, prefix)
+    return X_train, Z_train, y_train, X_valid, Z_valid, y_valid
 
 
 def save_model_weights(model: torch.nn.Module, output_dir: str | Path, filename: str) -> Path:

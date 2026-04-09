@@ -1,9 +1,16 @@
 """
-Offline training entrypoint for the quadratic-game regressor.
+Offline training entrypoint for the quadratic-game regressor using DCPA approach.
 
-This script loads pre-generated `.npz` train/validation shards, builds the
-quadratic neural network, trains it from a YAML configuration, and saves the
-trained weights together with loss and validation plots.
+This script loads pre-generated `.npz` train/validation shards containing X, Z, y,
+builds the quadratic neural network, trains it from a YAML configuration, and saves
+the trained weights together with loss and validation plots.
+
+The DCPA approach:
+- X: exploration features from Gaussian sampling
+- Z: loss path trajectory from optimal agent
+- y: optimal gradient labels
+
+Training uses a custom DCPA loss that approximates gradients using the loss path.
 
 Usage examples
 --------------
@@ -27,15 +34,22 @@ from dnn_utils.nn_utils import (
 )
 from dnn_utils.quadratic_nn import Quadratic_NN
 from dnn_utils.quadratic_paths import copy_config_file, load_dataset_npz, save_model_weights
-from dnn_utils.train_data_struct import XYDataset, build_parser, load_configs_from_yaml
+from dnn_utils.train_data_struct import XYDataset, XZYDataset, build_parser, load_configs_from_yaml
 
 
 def main_train_loop(args, train_cfg, sched_cfg) -> None:
     """Run the full offline training loop and save the training artifacts."""
-    X_train, y_train, X_valid, y_valid = load_dataset_npz(base_dir=args.input_dir)
+    X_train, Z_train, y_train, X_valid, Z_valid, y_valid = load_dataset_npz(base_dir=args.input_dir)
 
-    train_dataset = XYDataset(X_train, y_train)
-    val_dataset = XYDataset(X_valid, y_valid)
+    # Determine if we're using DCPA loss
+    use_dcpa = train_cfg.criterion.lower() == "dcpa"
+    
+    if use_dcpa:
+        train_dataset = XZYDataset(X_train, Z_train, y_train)
+        val_dataset = XZYDataset(X_valid, Z_valid, y_valid)
+    else:
+        train_dataset = XYDataset(X_train, y_train)
+        val_dataset = XYDataset(X_valid, y_valid)
 
     train_loader = DataLoader(
         train_dataset,
@@ -73,6 +87,7 @@ def main_train_loop(args, train_cfg, sched_cfg) -> None:
         num_epochs=train_cfg.epochs,
         scheduler=scheduler,
         grad_clip=train_cfg.grad_clip,
+        use_dcpa=use_dcpa,
     )
 
     save_path = save_model_weights(model, args.output_dir, "model.pt")
@@ -81,7 +96,7 @@ def main_train_loop(args, train_cfg, sched_cfg) -> None:
     print(f"Save config: {cfg_copy_path}")
 
     plot_loss(args.output_dir, train_cfg.epochs, train_list, valid_list)
-    predictions, targets = predict_dataset(model, val_loader, device)
+    predictions, targets = predict_dataset(model, val_loader, device, use_dcpa=use_dcpa)
     save_validation_scatter(
         predictions=predictions,
         targets=targets,
