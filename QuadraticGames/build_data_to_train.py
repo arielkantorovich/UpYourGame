@@ -30,6 +30,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 from utils.quad_utils import estimate_game_parameters, generate_Q_B
 
@@ -62,7 +63,69 @@ def make_dataset_dirs(base_dir: str | Path, *, N: int) -> tuple[Path, Path]:
     return train_dir, valid_dir
 
 
-def save_split_npz(out_dir: str | Path, *, X: np.ndarray, Z: np.ndarray, y: np.ndarray, prefix: str) -> None:
+def save_build_args_to_yaml(output_dir: str | Path, args: argparse.Namespace, filename: str = "args_build_data.yaml") -> Path:
+    """
+    Save all data generation arguments to a YAML file for reproducibility.
+    
+    Parameters
+    ----------
+    output_dir : str | Path
+        Directory where the YAML file will be saved (usually the N{N} directory).
+    args : argparse.Namespace
+        Parsed command-line arguments from build_data_to_train.py.
+    filename : str
+        Name of the output YAML file.
+        
+    Returns
+    -------
+    Path
+        Path to the saved YAML file.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    save_path = output_dir / filename
+    
+    # Convert argparse.Namespace to dictionary
+    args_dict = vars(args)
+    
+    # Organize into a structured format
+    config = {
+        "dataset_info": {
+            "N": args_dict["N"],
+            "L_train": args_dict["L"],
+            "L_valid": args_dict["valid_L"],
+            "L_batch": args_dict["L_batch"],
+            "base_dir": str(args_dict["base_dir"]),
+        },
+        "exploration": {
+            "T_exploration": args_dict["T_exploration"],
+        },
+        "loss_path": {
+            "T_loss": args_dict["T_loss"],
+            "T_jump": args_dict["T_jump"],
+            "loss_lr": args_dict["loss_lr"],
+            "loss_action_low": args_dict["loss_action_low"],
+            "loss_action_high": args_dict["loss_action_high"],
+        },
+        "game_parameters": {
+            "alpha": args_dict["alpha"],
+            "beta": args_dict["beta"],
+            "qnn_low": args_dict["qnn_low"],
+            "qnn_high": args_dict["qnn_high"],
+            "delta": args_dict["delta"],
+            "non_symmetric": args_dict["non_symmetric"],
+        },
+    }
+    
+    # Save to YAML
+    with open(save_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+    
+    print(f"Saved build arguments to: {save_path}")
+    return save_path
+
+
+def save_split_npz(out_dir: str | Path, *, X: np.ndarray, Z: np.ndarray, y: np.ndarray, params: np.ndarray, prefix: str) -> None:
     """
     Save one compressed shard with quadratic supervised samples (DCPA approach).
 
@@ -76,12 +139,14 @@ def save_split_npz(out_dir: str | Path, *, X: np.ndarray, Z: np.ndarray, y: np.n
         Loss path trajectory data.
     y : np.ndarray
         Optimal gradient labels.
+    params : np.ndarray
+        True parameters [q_nn, b_n] with shape (L*N, 2).
     prefix : str
         File name prefix. The function writes ``{prefix}.npz``.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(out_dir / f"{prefix}.npz", X=X, Z=Z, y=y)
+    np.savez_compressed(out_dir / f"{prefix}.npz", X=X, Z=Z, y=y, params=params)
 
 
 def run_optimal_agent_trajectory(
@@ -185,7 +250,7 @@ def build_supervised_player_dataset(
     loss_lr: float = 0.03,
     loss_action_low: float = -8.0,
     loss_action_high: float = 8.0,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Build per-player supervised samples using DCPA approach.
 
@@ -210,12 +275,13 @@ def build_supervised_player_dataset(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray, np.ndarray]
-        ``(X, Z, y)`` where:
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ``(X, Z, y, params)`` where:
 
         - ``X`` contains exploration features ``[x_n(t), cost_n(t)]`` pairs
         - ``Z`` contains subsampled loss path ``[x_n(t), R_n(t)]`` with ``T_record = T_loss // T_jump`` points
         - ``y`` contains optimal gradient labels at the same subsampled points
+        - ``params`` contains true parameters ``[q_nn, b_n]`` with shape ``(L*N, 2)``
     """
     # Build X: Gaussian exploration data
     _, _, exploration_x, costs = estimate_game_parameters(
@@ -248,7 +314,14 @@ def build_supervised_player_dataset(
     # Build Y: Optimal gradient labels at subsampled timesteps
     y = np.transpose(optimal_gradients[:, :, :, 0], (1, 2, 0)).reshape(L * N, T_record)  # (L*N, T_record)
 
-    return X.astype(np.float32), Z.astype(np.float32), y.astype(np.float32)
+    # Extract true parameters: q_nn (diagonal of Q) and b_n (from B)
+    q_nn = np.diagonal(Q, axis1=1, axis2=2)  # (L, N)
+    b_n = B[:, :, 0]  # (L, N)
+    
+    # Reshape to (L*N, 2) for [q_nn, b_n] pairs
+    params = np.stack([q_nn.ravel(), b_n.ravel()], axis=1)  # (L*N, 2)
+
+    return X.astype(np.float32), Z.astype(np.float32), y.astype(np.float32), params.astype(np.float32)
 
 
 def generate_and_save_dataset_in_batches(
@@ -327,7 +400,7 @@ def generate_and_save_dataset_in_batches(
             delta=delta,
             non_symmetric=non_symmetric,
         )
-        X, Z, y = build_supervised_player_dataset(
+        X, Z, y, params = build_supervised_player_dataset(
             Q=Q,
             B=B,
             T_exploration=T_exploration,
@@ -337,7 +410,7 @@ def generate_and_save_dataset_in_batches(
             loss_action_low=loss_action_low,
             loss_action_high=loss_action_high,
         )
-        save_split_npz(out_dir, X=X, Z=Z, y=y, prefix=f"{prefix}_{shard:05d}")
+        save_split_npz(out_dir, X=X, Z=Z, y=y, params=params, prefix=f"{prefix}_{shard:05d}")
         shard += 1
 
 
@@ -372,6 +445,10 @@ def main() -> None:
     """
     args = parse_args()
     train_dir, valid_dir = make_dataset_dirs(args.base_dir, N=args.N)
+
+    # Save build arguments to YAML in the N{N} directory for reproducibility
+    dataset_dir = Path(args.base_dir) / f"N{args.N}"
+    save_build_args_to_yaml(dataset_dir, args)
 
     generate_and_save_dataset_in_batches(
         out_dir=train_dir,
@@ -416,6 +493,7 @@ def main() -> None:
     print("Saved shards to:")
     print(" train:", train_dir)
     print(" valid:", valid_dir)
+    print(f" config: {dataset_dir / 'args_build_data.yaml'}")
 
 
 if __name__ == "__main__":

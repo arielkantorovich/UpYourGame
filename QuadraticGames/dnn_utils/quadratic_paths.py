@@ -13,12 +13,13 @@ import numpy as np
 import torch
 
 
-def _load_npz_shards(dir_path: Path, prefix: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _load_npz_shards(dir_path: Path, prefix: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Load one split from either a single `.npz` file or multiple numbered shards (DCPA format)."""
     single = dir_path / f"{prefix}.npz"
     if single.exists():
         with np.load(single) as data:
-            return data["X"], data["Z"], data["y"]
+            params = data.get("params", None)  # Handle old format without params
+            return data["X"], data["Z"], data["y"], params
 
     shards = sorted(dir_path.glob(f"{prefix}_*.npz"))
     if not shards:
@@ -27,27 +28,32 @@ def _load_npz_shards(dir_path: Path, prefix: str) -> Tuple[np.ndarray, np.ndarra
     Xs = []
     Zs = []
     Ys = []
+    Params = []
     for shard in shards:
         with np.load(shard) as data:
             Xs.append(data["X"])
             Zs.append(data["Z"])
             Ys.append(data["y"])
+            if "params" in data:
+                Params.append(data["params"])
 
-    return np.concatenate(Xs, axis=0), np.concatenate(Zs, axis=0), np.concatenate(Ys, axis=0)
+    params = np.concatenate(Params, axis=0) if Params else None
+    return np.concatenate(Xs, axis=0), np.concatenate(Zs, axis=0), np.concatenate(Ys, axis=0), params
 
 
 def load_dataset_npz(
     base_dir: str | Path,
     *,
     prefix: str = "data",
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Load train/validation arrays from the quadratic dataset directory layout (DCPA format).
     
     Returns
     -------
-    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-        (X_train, Z_train, y_train, X_valid, Z_valid, y_valid)
+    Tuple of 8 arrays
+        (X_train, Z_train, y_train, params_train, X_valid, Z_valid, y_valid, params_valid)
+        params may be None if old dataset format
     """
     base_dir = Path(base_dir)
     train_dir = base_dir / "train"
@@ -58,9 +64,9 @@ def load_dataset_npz(
     if not valid_dir.exists():
         raise FileNotFoundError(f"Valid dir not found: {valid_dir}")
 
-    X_train, Z_train, y_train = _load_npz_shards(train_dir, prefix)
-    X_valid, Z_valid, y_valid = _load_npz_shards(valid_dir, prefix)
-    return X_train, Z_train, y_train, X_valid, Z_valid, y_valid
+    X_train, Z_train, y_train, params_train = _load_npz_shards(train_dir, prefix)
+    X_valid, Z_valid, y_valid, params_valid = _load_npz_shards(valid_dir, prefix)
+    return X_train, Z_train, y_train, params_train, X_valid, Z_valid, y_valid, params_valid
 
 
 def save_model_weights(model: torch.nn.Module, output_dir: str | Path, filename: str) -> Path:

@@ -23,7 +23,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from dnn_utils.dnn_plots import plot_loss, save_validation_scatter
+from dnn_utils.dnn_plots import plot_loss, save_validation_scatter, save_qnn_bn_scatter
 from dnn_utils.nn_utils import (
     build_loss,
     build_optimizer,
@@ -39,7 +39,7 @@ from dnn_utils.train_data_struct import XYDataset, XZYDataset, build_parser, loa
 
 def main_train_loop(args, train_cfg, sched_cfg) -> None:
     """Run the full offline training loop and save the training artifacts."""
-    X_train, Z_train, y_train, X_valid, Z_valid, y_valid = load_dataset_npz(base_dir=args.input_dir)
+    X_train, Z_train, y_train, params_train, X_valid, Z_valid, y_valid, params_valid = load_dataset_npz(base_dir=args.input_dir)
 
     # Determine if we're using DCPA loss
     use_dcpa = train_cfg.criterion.lower() == "dcpa"
@@ -104,6 +104,20 @@ def main_train_loop(args, train_cfg, sched_cfg) -> None:
         filename="val_scatter.png",
         jump=10,
     )
+    
+    # Save q_nn and b_n scatter plots if params are available
+    if params_valid is not None:
+        print("Saving q_nn and b_n scatter plots...")
+        save_qnn_bn_scatter(
+            predictions=predictions,
+            true_params=params_valid,
+            output_dir=args.output_dir,
+            filename="qnn_bn_scatter.png",
+            jump=10,
+        )
+        print("q_nn and b_n scatter plots saved!")
+    else:
+        print("Warning: params not available in dataset. Skipping q_nn/b_n scatter plots.")
 
 
 if __name__ == "__main__":
