@@ -18,20 +18,46 @@ class Quadratic_NN(nn.Module):
         """
         super(Quadratic_NN, self).__init__()
         self.fc0 = nn.Linear(input_size, 256)
+        self.bn0 = nn.BatchNorm1d(256)
+        
         self.fc1 = nn.Linear(256, 128)
+        self.bn1 = nn.BatchNorm1d(128)
+        
         self.fc2 = nn.Linear(128, 64)
+        self.bn2 = nn.BatchNorm1d(64)
+        
         self.fc3 = nn.Linear(64, 32)
+        self.bn3 = nn.BatchNorm1d(32)
+        
         self.fc4 = nn.Linear(32, output_size)
+        # No batch norm on the last layer
 
         # Initialize weights
         self.init_weights()
 
     def forward(self, x):
         """Apply the MLP to one batch of exploration features."""
-        x = torch.relu(self.fc0(x))
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = torch.relu(self.fc3(x))
+        # Layer 0: Linear -> BatchNorm -> ReLU
+        x = self.fc0(x)
+        x = self.bn0(x)
+        x = torch.relu(x)
+        
+        # Layer 1: Linear -> BatchNorm -> ReLU
+        x = self.fc1(x)
+        x = self.bn1(x)
+        x = torch.relu(x)
+        
+        # Layer 2: Linear -> BatchNorm -> ReLU
+        x = self.fc2(x)
+        x = self.bn2(x)
+        x = torch.relu(x)
+        
+        # Layer 3: Linear -> BatchNorm -> ReLU
+        x = self.fc3(x)
+        x = self.bn3(x)
+        x = torch.relu(x)
+        
+        # Layer 4: Linear only (no BatchNorm, no activation)
         x = self.fc4(x)
         return x
 

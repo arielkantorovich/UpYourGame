@@ -31,6 +31,7 @@ from dnn_utils.nn_utils import (
     fit,
     get_io_dimensions,
     predict_dataset,
+    predict_parameters,
 )
 from dnn_utils.quadratic_nn import Quadratic_NN
 from dnn_utils.quadratic_paths import copy_config_file, load_dataset_npz, save_model_weights
@@ -96,6 +97,8 @@ def main_train_loop(args, train_cfg, sched_cfg) -> None:
     print(f"Save config: {cfg_copy_path}")
 
     plot_loss(args.output_dir, train_cfg.epochs, train_list, valid_list)
+    
+    # For validation scatter: compare predicted gradients vs true gradients
     predictions, targets = predict_dataset(model, val_loader, device, use_dcpa=use_dcpa)
     save_validation_scatter(
         predictions=predictions,
@@ -108,8 +111,10 @@ def main_train_loop(args, train_cfg, sched_cfg) -> None:
     # Save q_nn and b_n scatter plots if params are available
     if params_valid is not None:
         print("Saving q_nn and b_n scatter plots...")
+        # Get raw parameter predictions [q_nn, b_n]
+        param_predictions = predict_parameters(model, val_loader, device)
         save_qnn_bn_scatter(
-            predictions=predictions,
+            predictions=param_predictions,
             true_params=params_valid,
             output_dir=args.output_dir,
             filename="qnn_bn_scatter.png",

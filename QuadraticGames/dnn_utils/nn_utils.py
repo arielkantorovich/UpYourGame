@@ -266,7 +266,31 @@ def predict_dataset(
     device: torch.device,
     use_dcpa: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Run batched inference over a dataset and collect predictions and targets."""
+    """
+    Run batched inference over a dataset and collect predictions and targets.
+    
+    For DCPA mode, this computes the gradient approximation using the loss path Z,
+    not just the raw parameter predictions [q_nn, b_n].
+    
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The trained neural network.
+    data_loader : DataLoader
+        Validation or test data loader.
+    device : torch.device
+        Device to run inference on.
+    use_dcpa : bool
+        If True, computes gradient approximation from parameters and loss path.
+        If False, returns raw model outputs.
+        
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        (predictions, targets) where:
+        - predictions: gradient approximations (if DCPA) or raw outputs (if not DCPA)
+        - targets: true gradient labels
+    """
     model.eval()
     predictions = []
     targets = []
@@ -274,17 +298,75 @@ def predict_dataset(
     for batch_data in data_loader:
         if use_dcpa:
             # DCPA format: (X, Z, y)
-            inputs, _, batch_targets = batch_data
-        else:
-            # Standard format: (X, y)
-            inputs, batch_targets = batch_data
+            inputs, Z_path, batch_targets = batch_data
+            inputs = inputs.to(device)
+            Z_path = Z_path.to(device)
             
+            # Get model predictions: [q_nn, b_n]
+            outputs = model(inputs)
+            
+            # Compute gradient approximation using the SAME formula as DCPALoss
+            q_nn = outputs[:, 0:1]  # (batch, 1)
+            b_n = outputs[:, 1:2]   # (batch, 1)
+            
+            # Extract x_n(t) and R_n(t) at ALL timesteps from Z_path
+            x_all = Z_path[:, 0::2]  # (batch, T_loss) — all x_n values
+            R_all = Z_path[:, 1::2]  # (batch, T_loss) — all R_n values
+            
+            # Compute gradient approximation at every timestep:
+            # R_n(t)/x_n(t) - b_n - 0.5*q_nn*x_n(t)
+            eps = 1e-8
+            gradient_approx = (R_all / (x_all + eps)) - b_n - 0.5 * q_nn * x_all
+            
+            predictions.append(gradient_approx.detach().cpu().numpy())
+            targets.append(batch_targets.detach().cpu().numpy())
+        else:
+            # Standard format: (X, y) - return raw outputs
+            inputs, batch_targets = batch_data
+            inputs = inputs.to(device)
+            outputs = model(inputs)
+            predictions.append(outputs.detach().cpu().numpy())
+            targets.append(batch_targets.detach().cpu().numpy())
+
+    return np.concatenate(predictions, axis=0), np.concatenate(targets, axis=0)
+
+
+@torch.no_grad()
+def predict_parameters(
+    model: torch.nn.Module,
+    data_loader,
+    device: torch.device,
+) -> np.ndarray:
+    """
+    Run batched inference and return raw parameter predictions [q_nn, b_n].
+    
+    This is used for parameter scatter plots (q_nn vs true q_nn, b_n vs true b_n).
+    
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The trained neural network.
+    data_loader : DataLoader
+        Data loader (train/val/test).
+    device : torch.device
+        Device to run inference on.
+        
+    Returns
+    -------
+    np.ndarray
+        Parameter predictions with shape (n_samples, 2) where [:, 0] is q_nn and [:, 1] is b_n.
+    """
+    model.eval()
+    predictions = []
+
+    for batch_data in data_loader:
+        # Get inputs (X) from either (X, Z, y) or (X, y) format
+        inputs = batch_data[0]
         inputs = inputs.to(device)
         outputs = model(inputs)
         predictions.append(outputs.detach().cpu().numpy())
-        targets.append(batch_targets.detach().cpu().numpy())
 
-    return np.concatenate(predictions, axis=0), np.concatenate(targets, axis=0)
+    return np.concatenate(predictions, axis=0)
 
 
 @torch.no_grad()
