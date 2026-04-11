@@ -92,6 +92,7 @@ def save_build_args_to_yaml(output_dir: str | Path, args: argparse.Namespace, fi
     config = {
         "dataset_info": {
             "N": args_dict["N"],
+            "N_subset": args_dict["N_subset"],
             "L_train": args_dict["L"],
             "L_valid": args_dict["valid_L"],
             "L_batch": args_dict["L_batch"],
@@ -250,6 +251,7 @@ def build_supervised_player_dataset(
     loss_lr: float = 0.03,
     loss_action_low: float = -8.0,
     loss_action_high: float = 8.0,
+    N_subset: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Build per-player supervised samples using DCPA approach.
@@ -272,6 +274,9 @@ def build_supervised_player_dataset(
         Lower bound for action projection in the loss path.
     loss_action_high : float
         Upper bound for action projection in the loss path.
+    N_subset : int | None
+        Number of players to randomly sample. If None, uses all N players.
+        Default is None for backward compatibility.
 
     Returns
     -------
@@ -281,7 +286,7 @@ def build_supervised_player_dataset(
         - ``X`` contains exploration features ``[x_n(t), cost_n(t)]`` pairs
         - ``Z`` contains subsampled loss path ``[x_n(t), R_n(t)]`` with ``T_record = T_loss // T_jump`` points
         - ``y`` contains optimal gradient labels at the same subsampled points
-        - ``params`` contains true parameters ``[q_nn, b_n]`` with shape ``(L*N, 2)``
+        - ``params`` contains true parameters ``[q_nn, b_n]`` with shape ``(L*N, 2)`` or ``(L*N_subset, 2)``
     """
     # Build X: Gaussian exploration data
     _, _, exploration_x, costs = estimate_game_parameters(
@@ -290,10 +295,6 @@ def build_supervised_player_dataset(
         B=B,
         return_samples=True,
     )
-
-    T, L, N, _ = exploration_x.shape
-    feature_pairs = np.concatenate([exploration_x, costs], axis=-1)   # (T, L, N, 2)
-    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 2 * T)
 
     # Build Z: Loss path from optimal agent trajectory (subsampled)
     T_record = T_loss // T_jump
@@ -306,6 +307,30 @@ def build_supervised_player_dataset(
         action_low=loss_action_low,
         action_high=loss_action_high,
     )
+    
+    # Check if we should subsample players
+    L, N, _ = B.shape
+    if N_subset is not None and N_subset < N:
+        # Use helper function to subsample N_subset players randomly
+        from utils.quad_utils import build_player_subset_dataset
+        
+        X, Z, y, params = build_player_subset_dataset(
+            exploration_x=exploration_x,
+            costs=costs,
+            trajectory_x=trajectory_x,
+            trajectory_cost=trajectory_cost,
+            optimal_gradients=optimal_gradients,
+            Q=Q,
+            B=B,
+            N_subset=N_subset,
+            player_idx=None,  # Random sampling
+        )
+        return X, Z, y, params
+    
+    # Original logic: use all N players
+    T, L, N, _ = exploration_x.shape
+    feature_pairs = np.concatenate([exploration_x, costs], axis=-1)   # (T, L, N, 2)
+    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 2 * T)
     
     # Z contains [x_n(t), R_n(t)] pairs from the subsampled optimal agent trajectory
     loss_path_pairs = np.concatenate([trajectory_x, trajectory_cost], axis=-1)  # (T_record, L, N, 2)
@@ -342,6 +367,7 @@ def generate_and_save_dataset_in_batches(
     loss_lr: float = 0.03,
     loss_action_low: float = -8.0,
     loss_action_high: float = 8.0,
+    N_subset: int | None = None,
     prefix: str = "data",
 ) -> None:
     """
@@ -381,6 +407,9 @@ def generate_and_save_dataset_in_batches(
         Lower bound for action projection in the loss path.
     loss_action_high : float
         Upper bound for action projection in the loss path.
+    N_subset : int | None
+        Number of players to randomly sample. If None, uses all N players.
+        Default is None for backward compatibility.
     prefix : str, optional
         Base name used for shard files.
     """
@@ -409,6 +438,7 @@ def generate_and_save_dataset_in_batches(
             loss_lr=loss_lr,
             loss_action_low=loss_action_low,
             loss_action_high=loss_action_high,
+            N_subset=N_subset,
         )
         save_split_npz(out_dir, X=X, Z=Z, y=y, params=params, prefix=f"{prefix}_{shard:05d}")
         shard += 1
@@ -424,6 +454,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--valid_L", type=int, default=800, help="Number of validation games")
     p.add_argument("--L_batch", type=int, default=500, help="Games per shard")
     p.add_argument("--N", type=int, default=5)
+    p.add_argument("--N_subset", type=int, default=5, help="Number of players to randomly sample (default: 5, use 0 or None for all N players)")
     p.add_argument("--T_exploration", type=int, default=200)
     p.add_argument("--T_loss", type=int, default=200, help="Steps for optimal agent trajectory")
     p.add_argument("--T_jump", type=int, default=20, help="Record interval for loss path subsampling")
@@ -449,6 +480,17 @@ def main() -> None:
     # Save build arguments to YAML in the N{N} directory for reproducibility
     dataset_dir = Path(args.base_dir) / f"N{args.N}"
     save_build_args_to_yaml(dataset_dir, args)
+    
+    # Handle N_subset: if 0 or >= N, use None (all players)
+    N_subset = args.N_subset
+    if N_subset == 0 or N_subset >= args.N:
+        N_subset = None
+    
+    # Print info about N_subset usage
+    if N_subset is None:
+        print(f"Using all N={args.N} players for training data")
+    else:
+        print(f"Randomly sampling N_subset={N_subset} players from N={args.N} (memory reduction: {100*(1-N_subset/args.N):.1f}%)")
 
     generate_and_save_dataset_in_batches(
         out_dir=train_dir,
@@ -467,6 +509,7 @@ def main() -> None:
         loss_lr=args.loss_lr,
         loss_action_low=args.loss_action_low,
         loss_action_high=args.loss_action_high,
+        N_subset=N_subset,
         prefix="data",
     )
 
@@ -487,6 +530,7 @@ def main() -> None:
         loss_lr=args.loss_lr,
         loss_action_low=args.loss_action_low,
         loss_action_high=args.loss_action_high,
+        N_subset=N_subset,
         prefix="data",
     )
 

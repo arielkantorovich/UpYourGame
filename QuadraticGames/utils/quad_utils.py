@@ -244,6 +244,116 @@ def estimate_game_parameters_with_nn(
     return q_nn_est, B_est, train_cfg.T_exploration
 
 
+def build_player_subset_dataset(
+    exploration_x: np.ndarray,
+    costs: np.ndarray,
+    trajectory_x: np.ndarray,
+    trajectory_cost: np.ndarray,
+    optimal_gradients: np.ndarray,
+    Q: np.ndarray,
+    B: np.ndarray,
+    N_subset: int,
+    player_idx: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Build training dataset for a random subset of N_subset players.
+    
+    This function randomly samples N_subset players from the total N players
+    and creates training data only for those sampled players, reducing memory
+    usage while maintaining training quality.
+    
+    Parameters
+    ----------
+    exploration_x : np.ndarray
+        Exploration actions with shape ``(T, L, N, 1)``.
+    costs : np.ndarray
+        Exploration costs with shape ``(T, L, N, 1)``.
+    trajectory_x : np.ndarray
+        Optimal agent trajectory actions with shape ``(T_record, L, N, 1)``.
+    trajectory_cost : np.ndarray
+        Optimal agent trajectory costs with shape ``(T_record, L, N, 1)``.
+    optimal_gradients : np.ndarray
+        Optimal gradients with shape ``(T_record, L, N, 1)``.
+    Q : np.ndarray
+        Quadratic matrices with shape ``(L, N, N)``.
+    B : np.ndarray
+        Linear coefficients with shape ``(L, N, 1)``.
+    N_subset : int
+        Number of players to randomly sample (must be <= N).
+    player_idx : np.ndarray | None, optional
+        Specific player indices to use. If None, randomly samples N_subset players
+        without replacement.
+    
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ``(X, Z, y, params)`` where:
+        
+        - ``X`` contains exploration features ``[x_n(t), cost_n(t)]`` pairs
+          with shape ``(L * N_subset, 2 * T)``
+        - ``Z`` contains loss path ``[x_n(t), R_n(t)]`` pairs
+          with shape ``(L * N_subset, 2 * T_record)``
+        - ``y`` contains optimal gradient labels
+          with shape ``(L * N_subset, T_record)``
+        - ``params`` contains true parameters ``[q_nn, b_n]``
+          with shape ``(L * N_subset, 2)``
+    
+    Raises
+    ------
+    ValueError
+        If N_subset > N or if player_idx is invalid.
+    """
+    T, L, N, _ = exploration_x.shape
+    T_record = trajectory_x.shape[0]
+    
+    # Validate and generate player indices
+    if player_idx is None:
+        if N_subset > N:
+            raise ValueError(f"N_subset={N_subset} cannot be > N={N}")
+        # Random sampling without replacement
+        player_idx = np.random.choice(N, size=N_subset, replace=False)
+    else:
+        player_idx = np.asarray(player_idx, dtype=int)
+        if player_idx.ndim != 1:
+            raise ValueError("player_idx must be 1D")
+        if len(player_idx) != N_subset:
+            raise ValueError(f"player_idx length {len(player_idx)} != N_subset {N_subset}")
+        if np.any(player_idx < 0) or np.any(player_idx >= N):
+            raise ValueError("player_idx contains out-of-range indices")
+    
+    # Subsample exploration data: (T, L, N, 1) → (T, L, N_subset, 1)
+    exploration_x_sub = exploration_x[:, :, player_idx, :]
+    costs_sub = costs[:, :, player_idx, :]
+    
+    # Subsample trajectory data: (T_record, L, N, 1) → (T_record, L, N_subset, 1)
+    trajectory_x_sub = trajectory_x[:, :, player_idx, :]
+    trajectory_cost_sub = trajectory_cost[:, :, player_idx, :]
+    optimal_gradients_sub = optimal_gradients[:, :, player_idx, :]
+    
+    # Build X: Exploration features [x_n(t), cost_n(t)]
+    feature_pairs = np.concatenate([exploration_x_sub, costs_sub], axis=-1)  # (T, L, N_subset, 2)
+    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N_subset, 2 * T)
+    
+    # Build Z: Loss path [x_n(t), R_n(t)]
+    loss_path_pairs = np.concatenate([trajectory_x_sub, trajectory_cost_sub], axis=-1)  # (T_record, L, N_subset, 2)
+    Z = np.transpose(loss_path_pairs, (1, 2, 0, 3)).reshape(L * N_subset, 2 * T_record)
+    
+    # Build y: Optimal gradient labels
+    y = np.transpose(optimal_gradients_sub[:, :, :, 0], (1, 2, 0)).reshape(L * N_subset, T_record)
+    
+    # Extract parameters for sampled players only
+    q_nn = np.diagonal(Q, axis1=1, axis2=2)  # (L, N)
+    q_nn_sub = q_nn[:, player_idx]  # (L, N_subset)
+    
+    b_n = B[:, :, 0]  # (L, N)
+    b_n_sub = b_n[:, player_idx]  # (L, N_subset)
+    
+    # Stack parameters: [q_nn, b_n] pairs
+    params = np.stack([q_nn_sub.ravel(), b_n_sub.ravel()], axis=1)  # (L * N_subset, 2)
+    
+    return X.astype(np.float32), Z.astype(np.float32), y.astype(np.float32), params.astype(np.float32)
+
+
 def IterationLoop(
     cfg: SimConfig,
     Q: np.ndarray,
