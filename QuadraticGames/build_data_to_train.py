@@ -7,12 +7,12 @@ This script generates quadratic games and creates three components:
 - Y: optimal gradient labels
 
 The approach follows the DCPA concept from energy games:
-1. X contains exploration data: [x_n(t), cost_n(t)] from N(0,1) sampling
+1. X contains exploration data: [cost_n(t)*x_n(t), cost_n(t), x_n(t)] from N(0,1) sampling
 2. Z contains optimal agent trajectory over T_loss steps (x_n, R_n)
 3. Y contains the target optimal gradient: Q^T * x - q_nn * x
 
 Saved arrays:
-- `X`: exploration features [x_n(t), cost_n(t)] pairs
+- `X`: exploration features [cost_n(t)*x_n(t), cost_n(t), x_n(t)] triplets
 - `Z`: loss path trajectory [x_n(t), R_n(t)] from optimal agent
 - `y`: optimal gradient labels
 
@@ -283,7 +283,7 @@ def build_supervised_player_dataset(
     tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         ``(X, Z, y, params)`` where:
 
-        - ``X`` contains exploration features ``[x_n(t), cost_n(t)]`` pairs
+        - ``X`` contains exploration features ``[cost_n(t)*x_n(t), cost_n(t), x_n(t)]`` triplets
         - ``Z`` contains subsampled loss path ``[x_n(t), R_n(t)]`` with ``T_record = T_loss // T_jump`` points
         - ``y`` contains optimal gradient labels at the same subsampled points
         - ``params`` contains true parameters ``[q_nn, b_n]`` with shape ``(L*N, 2)`` or ``(L*N_subset, 2)``
@@ -329,8 +329,8 @@ def build_supervised_player_dataset(
     
     # Original logic: use all N players
     T, L, N, _ = exploration_x.shape
-    feature_pairs = np.concatenate([exploration_x, costs], axis=-1)   # (T, L, N, 2)
-    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 2 * T)
+    feature_pairs = np.concatenate([costs * exploration_x, costs, exploration_x], axis=-1)   # (T, L, N, 3)
+    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 3 * T)
     
     # Z contains [x_n(t), R_n(t)] pairs from the subsampled optimal agent trajectory
     loss_path_pairs = np.concatenate([trajectory_x, trajectory_cost], axis=-1)  # (T_record, L, N, 2)

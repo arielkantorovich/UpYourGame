@@ -116,7 +116,7 @@ def build_scheduler(
 
 def get_io_dimensions(train_cfg: TrainConfig) -> Tuple[int, int]:
     """Infer network input/output dimensions from the training configuration."""
-    input_dim = 2 * train_cfg.T_exploration
+    input_dim = 3 * train_cfg.T_exploration
     output_dim = train_cfg.output_dim
     return input_dim, output_dim
 

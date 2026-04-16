@@ -227,8 +227,8 @@ def estimate_game_parameters_with_nn(
     )
 
     T, L, N, _ = exploration_x.shape
-    feature_pairs = np.concatenate([exploration_x, costs], axis=-1)
-    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 2 * T).astype(np.float32)
+    feature_pairs = np.concatenate([costs * exploration_x, costs, exploration_x], axis=-1)
+    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N, 3 * T).astype(np.float32)
 
     predictions = quadratic_nn_predict(
         input_path=str(weights_dir),
@@ -289,8 +289,8 @@ def build_player_subset_dataset(
     tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         ``(X, Z, y, params)`` where:
         
-        - ``X`` contains exploration features ``[x_n(t), cost_n(t)]`` pairs
-          with shape ``(L * N_subset, 2 * T)``
+        - ``X`` contains exploration features ``[cost_n(t)*x_n(t), cost_n(t), x_n(t)]`` triplets
+          with shape ``(L * N_subset, 3 * T)``
         - ``Z`` contains loss path ``[x_n(t), R_n(t)]`` pairs
           with shape ``(L * N_subset, 2 * T_record)``
         - ``y`` contains optimal gradient labels
@@ -330,9 +330,9 @@ def build_player_subset_dataset(
     trajectory_cost_sub = trajectory_cost[:, :, player_idx, :]
     optimal_gradients_sub = optimal_gradients[:, :, player_idx, :]
     
-    # Build X: Exploration features [x_n(t), cost_n(t)]
-    feature_pairs = np.concatenate([exploration_x_sub, costs_sub], axis=-1)  # (T, L, N_subset, 2)
-    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N_subset, 2 * T)
+    # Build X: Exploration features [cost_n(t)*x_n(t), cost_n(t), x_n(t)]
+    feature_pairs = np.concatenate([costs_sub * exploration_x_sub, costs_sub, exploration_x_sub], axis=-1)  # (T, L, N_subset, 3)
+    X = np.transpose(feature_pairs, (1, 2, 0, 3)).reshape(L * N_subset, 3 * T)
     
     # Build Z: Loss path [x_n(t), R_n(t)]
     loss_path_pairs = np.concatenate([trajectory_x_sub, trajectory_cost_sub], axis=-1)  # (T_record, L, N_subset, 2)
