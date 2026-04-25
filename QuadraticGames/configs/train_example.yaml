@@ -1,0 +1,40 @@
+# ============================================================================
+# Quadratic Game -- Example Training Configuration
+# ============================================================================
+# Pass this file to Offline_train.py:
+#   python Offline_train.py --config configs/train_example.yaml \
+#                           --input_dir Training_Data/N5 \
+#                           --output_dir results/quadratic_N5
+# ============================================================================
+
+# Optimizer
+optimizer: "adam"            # "adam" or "sgd"
+lr: 0.001                   # Learning rate
+weight_decay: 0.0           # L2 regularisation
+momentum: 0.9               # Momentum (only used with SGD)
+
+# Loss
+criterion: "mse"            # "mse" or "dcpa"
+
+# Training
+batch_size: 128
+epochs: 100
+grad_clip: null              # Set to a float (e.g. 1.0) to enable gradient clipping
+
+# Data dimensions (must match build_data_to_train.py settings)
+T_exploration: 200           # Exploration time steps
+T_loss: 200                  # Loss-path trajectory length
+output_dim: 2                # Number of predicted parameters (q_nn, b_n)
+
+# Learning rate scheduler
+scheduler: "none"            # "none", "step", or "cosine"
+
+# Step scheduler settings (used when scheduler = "step")
+scheduler_step:
+  step_size: 30
+  gamma: 0.1
+
+# Cosine scheduler settings (used when scheduler = "cosine")
+scheduler_cosine:
+  tmax: 100
+  eta_min: 0.00001

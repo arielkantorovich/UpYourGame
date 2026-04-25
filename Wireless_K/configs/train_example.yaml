@@ -1,0 +1,40 @@
+# ============================================================================
+# Wireless Network Game -- Example Training Configuration
+# ============================================================================
+# Pass this file to Offline_train.py:
+#   python Offline_train.py --config configs/train_example.yaml \
+#                           --input_dir Training_Data/N5_K14 \
+#                           --output_dir results/wireless_N5_K14
+# ============================================================================
+
+# Optimizer
+optimizer: "adam"            # "adam" or "sgd"
+lr: 0.001                   # Learning rate
+weight_decay: 0.0           # L2 regularisation
+momentum: 0.9               # Momentum (only used with SGD)
+
+# Loss
+criterion: "mse"            # "mse" or "dcpa"
+
+# Training
+batch_size: 128
+epochs: 100
+grad_clip: null              # Set to a float (e.g. 1.0) to enable gradient clipping
+
+# Data dimensions (must match buildDataToTrain.py settings)
+K: 14                        # Number of frequency channels
+T: 100                       # Exploration time steps
+isAlphaBeta: true            # true = predict (alpha, beta), false = predict alpha only
+
+# Learning rate scheduler
+scheduler: "none"            # "none", "step", or "cosine"
+
+# Step scheduler settings (used when scheduler = "step")
+scheduler_step:
+  step_size: 30
+  gamma: 0.1
+
+# Cosine scheduler settings (used when scheduler = "cosine")
+scheduler_cosine:
+  tmax: 100
+  eta_min: 0.00001
