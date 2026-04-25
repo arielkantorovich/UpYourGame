@@ -446,7 +446,7 @@ If you find this work useful, please cite our papers:
 
 ## Acknowledgements
 
-This research was conducted at the [RACCOON Lab](https://www.raccoonlab.com/), Tel Aviv University, under the supervision of Dr. Ilai Bistritz.
+This research was conducted at the [RACCOON Lab](https://sites.google.com/view/ilaibistritz/raccoon-lab), Tel Aviv University, under the supervision of Dr. Ilai Bistritz.
 
 ---
 
